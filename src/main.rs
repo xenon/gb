@@ -6,6 +6,7 @@ use clap::Parser;
 pub mod cart;
 pub mod cpu;
 pub mod mmu;
+pub mod ppu;
 
 #[derive(Parser)]
 enum Command {
