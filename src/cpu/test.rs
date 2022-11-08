@@ -57,18 +57,11 @@ mod alu {
 
         let mut regs = Registers::new();
 
-        let res_reg = Reg8::A;
-        let add_reg = Reg8::B;
-
         for (test_num, test) in tests.unwrap().iter().enumerate() {
             let (x, y, flags, res, res_flags) = to_hex(test);
-            regs.set_8(res_reg, x);
-            regs.set_8(add_reg, y);
+            regs.set_8(Reg8::A, x);
             regs.set_8(Reg8::F, flags);
-
-            regs.adc(add_reg);
-
-            let val = regs.get_8(res_reg);
+            let val = regs.adc(y);
             let val_flags = regs.get_8(Reg8::F);
 
             if res != val || val_flags != res_flags {
@@ -101,18 +94,11 @@ mod alu {
 
         let mut regs = Registers::new();
 
-        let res_reg = Reg8::A;
-        let add_reg = Reg8::B;
-
         for (test_num, test) in tests.unwrap().iter().enumerate() {
             let (x, y, flags, res, res_flags) = to_hex(test);
-            regs.set_8(res_reg, x);
-            regs.set_8(add_reg, y);
+            regs.set_8(Reg8::A, x);
             regs.set_8(Reg8::F, flags);
-
-            regs.add(add_reg);
-
-            let val = regs.get_8(res_reg);
+            let val = regs.add(y);
             let val_flags = regs.get_8(Reg8::F);
 
             if res != val || val_flags != res_flags {
@@ -145,18 +131,11 @@ mod alu {
 
         let mut regs = Registers::new();
 
-        let res_reg = Reg8::A;
-        let add_reg = Reg8::B;
-
         for (test_num, test) in tests.unwrap().iter().enumerate() {
             let (x, y, flags, res, res_flags) = to_hex(test);
-            regs.set_8(res_reg, x);
-            regs.set_8(add_reg, y);
+            regs.set_8(Reg8::A, x);
             regs.set_8(Reg8::F, flags);
-
-            regs.and(add_reg);
-
-            let val = regs.get_8(res_reg);
+            let val = regs.and(y);
             let val_flags = regs.get_8(Reg8::F);
 
             if res != val || val_flags != res_flags {
@@ -189,23 +168,17 @@ mod alu {
 
         let mut regs = Registers::new();
 
-        let res_reg = Reg8::A;
-
         for (test_num, test) in tests.unwrap().iter().enumerate() {
             let (x, y, flags, res, res_flags) = to_hex(test);
-            regs.set_8(res_reg, x);
             regs.set_8(Reg8::F, flags);
+            regs.bit(x, y);
 
-            regs.bit(res_reg, y);
-
-            let val = regs.get_8(res_reg);
             let val_flags = regs.get_8(Reg8::F);
-
-            if res != val || val_flags != res_flags {
+            if val_flags != res_flags {
                 fail_count += 1;
                 eprintln!(
-                    "[fail    {}] - res [{}], flags [{}] expected res [{}], flags [{}]",
-                    test_num, val, val_flags, res, res_flags
+                    "[fail    {}] - flags [{}] expected flags [{}]",
+                    test_num, val_flags, res_flags
                 );
             }
             count += 1;
@@ -231,23 +204,17 @@ mod alu {
 
         let mut regs = Registers::new();
 
-        let res_reg = Reg8::A;
-
         for (test_num, test) in tests.unwrap().iter().enumerate() {
             let (x, y, flags, res, res_flags) = to_hex(test);
-            regs.set_8(res_reg, x);
             regs.set_8(Reg8::F, flags);
-
             regs.ccf();
-
-            let val = regs.get_8(res_reg);
             let val_flags = regs.get_8(Reg8::F);
 
-            if res != val || val_flags != res_flags {
+            if val_flags != res_flags {
                 fail_count += 1;
                 eprintln!(
-                    "[fail    {}] - res [{}], flags [{}] expected res [{}], flags [{}]",
-                    test_num, val, val_flags, res, res_flags
+                    "[fail    {}] - flags [{}] expected flags [{}]",
+                    test_num, val_flags, res_flags
                 );
             }
             count += 1;
@@ -273,25 +240,18 @@ mod alu {
 
         let mut regs = Registers::new();
 
-        let res_reg = Reg8::A;
-        let add_reg = Reg8::B;
-
         for (test_num, test) in tests.unwrap().iter().enumerate() {
             let (x, y, flags, res, res_flags) = to_hex(test);
-            regs.set_8(res_reg, x);
-            regs.set_8(add_reg, y);
+            regs.set_8(Reg8::A, x);
             regs.set_8(Reg8::F, flags);
-
-            regs.cp(add_reg);
-
-            let val = regs.get_8(res_reg);
+            regs.cp(y);
             let val_flags = regs.get_8(Reg8::F);
 
-            if res != val || val_flags != res_flags {
+            if val_flags != res_flags {
                 fail_count += 1;
                 eprintln!(
-                    "[fail    {}] - res [{}], flags [{}] expected res [{}], flags [{}]",
-                    test_num, val, val_flags, res, res_flags
+                    "[fail    {}] - flags [{}] expected flags [{}]",
+                    test_num, val_flags, res_flags
                 );
             }
             count += 1;
@@ -317,16 +277,11 @@ mod alu {
 
         let mut regs = Registers::new();
 
-        let res_reg = Reg8::A;
-
         for (test_num, test) in tests.unwrap().iter().enumerate() {
             let (x, y, flags, res, res_flags) = to_hex(test);
-            regs.set_8(res_reg, x);
+            regs.set_8(Reg8::A, x);
             regs.set_8(Reg8::F, flags);
-
-            regs.cpl();
-
-            let val = regs.get_8(res_reg);
+            let val = regs.cpl();
             let val_flags = regs.get_8(Reg8::F);
 
             if res != val || val_flags != res_flags {
@@ -359,16 +314,11 @@ mod alu {
 
         let mut regs = Registers::new();
 
-        let res_reg = Reg8::A;
-
         for (test_num, test) in tests.unwrap().iter().enumerate() {
             let (x, y, flags, res, res_flags) = to_hex(test);
-            regs.set_8(res_reg, x);
+            regs.set_8(Reg8::A, x);
             regs.set_8(Reg8::F, flags);
-
-            regs.daa();
-
-            let val = regs.get_8(res_reg);
+            let val = regs.daa();
             let val_flags = regs.get_8(Reg8::F);
 
             if res != val || val_flags != res_flags {
@@ -401,18 +351,11 @@ mod alu {
 
         let mut regs = Registers::new();
 
-        let res_reg = Reg8::A;
-        let add_reg = Reg8::B;
-
         for (test_num, test) in tests.unwrap().iter().enumerate() {
             let (x, y, flags, res, res_flags) = to_hex(test);
-            regs.set_8(res_reg, x);
-            regs.set_8(add_reg, y);
+            regs.set_8(Reg8::A, x);
             regs.set_8(Reg8::F, flags);
-
-            regs.or(add_reg);
-
-            let val = regs.get_8(res_reg);
+            let val = regs.or(y);
             let val_flags = regs.get_8(Reg8::F);
 
             if res != val || val_flags != res_flags {
@@ -445,16 +388,10 @@ mod alu {
 
         let mut regs = Registers::new();
 
-        let res_reg = Reg8::A;
-
         for (test_num, test) in tests.unwrap().iter().enumerate() {
             let (x, y, flags, res, res_flags) = to_hex(test);
-            regs.set_8(res_reg, x);
             regs.set_8(Reg8::F, flags);
-
-            regs.res(res_reg, y);
-
-            let val = regs.get_8(res_reg);
+            let val = regs.res(x, y);
             let val_flags = regs.get_8(Reg8::F);
 
             if res != val || val_flags != res_flags {
@@ -487,16 +424,10 @@ mod alu {
 
         let mut regs = Registers::new();
 
-        let res_reg = Reg8::A;
-
         for (test_num, test) in tests.unwrap().iter().enumerate() {
             let (x, y, flags, res, res_flags) = to_hex(test);
-            regs.set_8(res_reg, x);
             regs.set_8(Reg8::F, flags);
-
-            regs.rl(res_reg);
-
-            let val = regs.get_8(res_reg);
+            let val = regs.rl(x);
             let val_flags = regs.get_8(Reg8::F);
 
             if res != val || val_flags != res_flags {
@@ -529,16 +460,10 @@ mod alu {
 
         let mut regs = Registers::new();
 
-        let res_reg = Reg8::A;
-
         for (test_num, test) in tests.unwrap().iter().enumerate() {
             let (x, y, flags, res, res_flags) = to_hex(test);
-            regs.set_8(res_reg, x);
             regs.set_8(Reg8::F, flags);
-
-            regs.rlc(res_reg);
-
-            let val = regs.get_8(res_reg);
+            let val = regs.rlc(x);
             let val_flags = regs.get_8(Reg8::F);
 
             if res != val || val_flags != res_flags {
@@ -571,16 +496,10 @@ mod alu {
 
         let mut regs = Registers::new();
 
-        let res_reg = Reg8::A;
-
         for (test_num, test) in tests.unwrap().iter().enumerate() {
             let (x, y, flags, res, res_flags) = to_hex(test);
-            regs.set_8(res_reg, x);
             regs.set_8(Reg8::F, flags);
-
-            regs.rr(res_reg);
-
-            let val = regs.get_8(res_reg);
+            let val = regs.rr(x);
             let val_flags = regs.get_8(Reg8::F);
 
             if res != val || val_flags != res_flags {
@@ -613,16 +532,10 @@ mod alu {
 
         let mut regs = Registers::new();
 
-        let res_reg = Reg8::A;
-
         for (test_num, test) in tests.unwrap().iter().enumerate() {
             let (x, y, flags, res, res_flags) = to_hex(test);
-            regs.set_8(res_reg, x);
             regs.set_8(Reg8::F, flags);
-
-            regs.rrc(res_reg);
-
-            let val = regs.get_8(res_reg);
+            let val = regs.rrc(x);
             let val_flags = regs.get_8(Reg8::F);
 
             if res != val || val_flags != res_flags {
@@ -655,18 +568,11 @@ mod alu {
 
         let mut regs = Registers::new();
 
-        let res_reg = Reg8::A;
-        let add_reg = Reg8::B;
-
         for (test_num, test) in tests.unwrap().iter().enumerate() {
             let (x, y, flags, res, res_flags) = to_hex(test);
-            regs.set_8(res_reg, x);
-            regs.set_8(add_reg, y);
+            regs.set_8(Reg8::A, x);
             regs.set_8(Reg8::F, flags);
-
-            regs.sbc(add_reg);
-
-            let val = regs.get_8(res_reg);
+            let val = regs.sbc(y);
             let val_flags = regs.get_8(Reg8::F);
 
             if res != val || val_flags != res_flags {
@@ -699,23 +605,17 @@ mod alu {
 
         let mut regs = Registers::new();
 
-        let res_reg = Reg8::A;
-
         for (test_num, test) in tests.unwrap().iter().enumerate() {
             let (x, y, flags, res, res_flags) = to_hex(test);
-            regs.set_8(res_reg, x);
             regs.set_8(Reg8::F, flags);
-
             regs.scf();
-
-            let val = regs.get_8(res_reg);
             let val_flags = regs.get_8(Reg8::F);
 
-            if res != val || val_flags != res_flags {
+            if val_flags != res_flags {
                 fail_count += 1;
                 eprintln!(
-                    "[fail    {}] - res [{}], flags [{}] expected res [{}], flags [{}]",
-                    test_num, val, val_flags, res, res_flags
+                    "[fail    {}] - flags [{}] expected flags [{}]",
+                    test_num, val_flags, res_flags
                 );
             }
             count += 1;
@@ -741,16 +641,10 @@ mod alu {
 
         let mut regs = Registers::new();
 
-        let res_reg = Reg8::A;
-
         for (test_num, test) in tests.unwrap().iter().enumerate() {
             let (x, y, flags, res, res_flags) = to_hex(test);
-            regs.set_8(res_reg, x);
             regs.set_8(Reg8::F, flags);
-
-            regs.set(res_reg, y);
-
-            let val = regs.get_8(res_reg);
+            let val = regs.set(x, y);
             let val_flags = regs.get_8(Reg8::F);
 
             if res != val || val_flags != res_flags {
@@ -783,16 +677,10 @@ mod alu {
 
         let mut regs = Registers::new();
 
-        let res_reg = Reg8::A;
-
         for (test_num, test) in tests.unwrap().iter().enumerate() {
             let (x, y, flags, res, res_flags) = to_hex(test);
-            regs.set_8(res_reg, x);
             regs.set_8(Reg8::F, flags);
-
-            regs.sla(res_reg);
-
-            let val = regs.get_8(res_reg);
+            let val = regs.sla(x);
             let val_flags = regs.get_8(Reg8::F);
 
             if res != val || val_flags != res_flags {
@@ -825,16 +713,10 @@ mod alu {
 
         let mut regs = Registers::new();
 
-        let res_reg = Reg8::A;
-
         for (test_num, test) in tests.unwrap().iter().enumerate() {
             let (x, y, flags, res, res_flags) = to_hex(test);
-            regs.set_8(res_reg, x);
             regs.set_8(Reg8::F, flags);
-
-            regs.sra(res_reg);
-
-            let val = regs.get_8(res_reg);
+            let val = regs.sra(x);
             let val_flags = regs.get_8(Reg8::F);
 
             if res != val || val_flags != res_flags {
@@ -867,16 +749,10 @@ mod alu {
 
         let mut regs = Registers::new();
 
-        let res_reg = Reg8::A;
-
         for (test_num, test) in tests.unwrap().iter().enumerate() {
             let (x, y, flags, res, res_flags) = to_hex(test);
-            regs.set_8(res_reg, x);
             regs.set_8(Reg8::F, flags);
-
-            regs.srl(res_reg);
-
-            let val = regs.get_8(res_reg);
+            let val = regs.srl(x);
             let val_flags = regs.get_8(Reg8::F);
 
             if res != val || val_flags != res_flags {
@@ -894,7 +770,7 @@ mod alu {
 
     #[test]
     fn sub() {
-        let reader = reader(format!("{}sbc.json", ALU_TEST_PATH));
+        let reader = reader(format!("{}sub.json", ALU_TEST_PATH));
         assert!(reader.is_some());
         eprintln!("File reader created!");
         let tests: std::result::Result<Vec<AluTest>, serde_json::Error> =
@@ -909,18 +785,11 @@ mod alu {
 
         let mut regs = Registers::new();
 
-        let res_reg = Reg8::A;
-        let add_reg = Reg8::B;
-
         for (test_num, test) in tests.unwrap().iter().enumerate() {
             let (x, y, flags, res, res_flags) = to_hex(test);
-            regs.set_8(res_reg, x);
-            regs.set_8(add_reg, y);
+            regs.set_8(Reg8::A, x);
             regs.set_8(Reg8::F, flags);
-
-            regs.sbc(add_reg);
-
-            let val = regs.get_8(res_reg);
+            let val = regs.sub(y);
             let val_flags = regs.get_8(Reg8::F);
 
             if res != val || val_flags != res_flags {
@@ -953,16 +822,10 @@ mod alu {
 
         let mut regs = Registers::new();
 
-        let res_reg = Reg8::A;
-
         for (test_num, test) in tests.unwrap().iter().enumerate() {
             let (x, y, flags, res, res_flags) = to_hex(test);
-            regs.set_8(res_reg, x);
             regs.set_8(Reg8::F, flags);
-
-            regs.swap(res_reg);
-
-            let val = regs.get_8(res_reg);
+            let val = regs.swap(x);
             let val_flags = regs.get_8(Reg8::F);
 
             if res != val || val_flags != res_flags {
@@ -995,18 +858,11 @@ mod alu {
 
         let mut regs = Registers::new();
 
-        let res_reg = Reg8::A;
-        let add_reg = Reg8::B;
-
         for (test_num, test) in tests.unwrap().iter().enumerate() {
             let (x, y, flags, res, res_flags) = to_hex(test);
-            regs.set_8(res_reg, x);
-            regs.set_8(add_reg, y);
+            regs.set_8(Reg8::A, x);
             regs.set_8(Reg8::F, flags);
-
-            regs.xor(add_reg);
-
-            let val = regs.get_8(res_reg);
+            let val = regs.xor(y);
             let val_flags = regs.get_8(Reg8::F);
 
             if res != val || val_flags != res_flags {

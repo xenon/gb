@@ -7,9 +7,15 @@ pub struct Ppu {
 
 impl Ppu {
     pub fn new() -> Self {
-        Self {
+        let mut p = Self {
             ram: [0; PPU_BANK_SIZE],
-        }
+        };
+        p.reset();
+        p
+    }
+
+    pub fn reset(&mut self) {
+        self.ram = [0; PPU_BANK_SIZE];
     }
 
     pub fn b(&self, address: u16) -> u8 {

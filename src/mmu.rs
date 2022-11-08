@@ -20,11 +20,13 @@ impl Mmu {
             hram: [0; HRAM_SIZE],
             interrupt_enable: 0,
         };
-        mmu.set_initial_state();
+        mmu.reset();
         mmu
     }
 
-    pub fn set_initial_state(&mut self) {
+    pub fn reset(&mut self) {
+        self.cart.reset();
+        self.ppu.reset();
         // TODO
         self.interrupt_enable = 0;
     }

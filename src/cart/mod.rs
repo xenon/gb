@@ -17,6 +17,8 @@ impl Cartridge {
         Ok(Self { rom: bytes, info })
     }
 
+    pub fn reset(&mut self) {}
+
     pub fn header_checksum(&self) -> bool {
         let mut checksum: u8 = 0;
         for index in 0x0134..0x014D {
