@@ -358,23 +358,25 @@ impl Registers {
         res
     }
 
-    // Untested instructions
+    // Somewhat tested instructions
 
     pub fn inc(&mut self, n: u8) -> u8 {
         let res = n.wrapping_add(1);
         self.set_flag(Flag::H, n & 0x0F == 0x0F);
         self.set_flag(Flag::N, false);
-        self.set_flag(Flag::Z, n == 0);
+        self.set_flag(Flag::Z, res == 0);
         res
     }
 
     pub fn dec(&mut self, n: u8) -> u8 {
         let res = n.wrapping_sub(1);
-        self.set_flag(Flag::H, n & 0x0F == 0);
+        self.set_flag(Flag::H, n & 0x0F == 0x00);
         self.set_flag(Flag::N, true);
-        self.set_flag(Flag::Z, n == 0);
+        self.set_flag(Flag::Z, res == 0);
         res
     }
+
+    // Untested instructions
 
     pub fn add16(&mut self, n: u16) -> u16 {
         let hl_val = self.get_16(Reg16::HL);

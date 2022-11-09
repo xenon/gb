@@ -5,10 +5,14 @@ use clap::Parser;
 use cpu::Cpu;
 use ppu::Ppu;
 
+pub mod apu;
 pub mod cart;
 pub mod cpu;
+pub mod joypad;
 pub mod mmu;
 pub mod ppu;
+pub mod serial;
+pub mod timer;
 
 #[derive(Parser)]
 enum Command {
@@ -32,8 +36,18 @@ fn main() {
     match Command::parse() {
         Command::Emu(args) => match Cartridge::new_from_file(&args.cart) {
             Ok(cart) => {
-                let ppu = Ppu::new();
-                let cpu = Cpu::new(cart, ppu);
+                println!("{}", cart.info.title);
+                let mut cpu = Cpu::new(cart, Ppu::new());
+                loop {
+                    let step = cpu.step();
+                    if step.0 >= 0x29A {
+                        println!("{:#06x}:    {:#04x}   [{}]", step.0, step.1, step.2);
+                    }
+                    if step.0 == 0x02B2 {
+                        println!("{}", cpu.print());
+                        break;
+                    }
+                }
             }
             Err(e) => {
                 eprintln!("Error reading cartridge:");

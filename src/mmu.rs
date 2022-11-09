@@ -1,20 +1,12 @@
-use crate::{cart::Cartridge, ppu::Ppu};
+use crate::{apu::Apu, cart::Cartridge, joypad::Joypad, ppu::Ppu, serial::Serial, timer::Timer};
 
 // Sizes
 const WRAM_BANK_SIZE: usize = 0x1000;
-const HRAM_SIZE: usize = 0x80;
+const HRAM_SIZE: usize = 0x100;
 
 // Addresses
-pub const P1: u16 = 0xFF00;
-pub const SB: u16 = 0xFF01;
-pub const SC: u16 = 0xFF02;
 
-pub const TIMER_DIV: u16 = 0xFF04;
-pub const TIMER_TIMA: u16 = 0xFF05;
-pub const TIMER_TMA: u16 = 0xFF06;
-pub const TIMER_TAC: u16 = 0xFF07;
-
-pub const INT_FLAGS: u16 = 0xFF0F;
+pub const INTF: u16 = 0xFF0F;
 
 pub const LCDC: u16 = 0xFF40;
 pub const STAT: u16 = 0xFF41;
@@ -44,13 +36,19 @@ pub const OCPS: u16 = 0xFF6A;
 pub const OCPD: u16 = 0xFF6B;
 pub const SVBK: u16 = 0xFF70;
 
-pub const INT_ENABLE: u16 = 0xFFFF;
+pub const INTE: u16 = 0xFFFF;
 
 pub struct Mmu {
     pub cart: Cartridge,
     pub ppu: Ppu,
+    pub joypad: Joypad,
+    pub serial: Serial,
+    pub timer: Timer,
+    pub apu: Apu,
     wram: [u8; 2 * WRAM_BANK_SIZE], // CGB: 32768 bytes = 8 * WRAM_BANK_SIZE
     hram: [u8; HRAM_SIZE],
+    intf: u8,
+    inte: u8,
 }
 
 impl Mmu {
@@ -58,8 +56,14 @@ impl Mmu {
         let mut mmu = Mmu {
             cart,
             ppu,
+            joypad: Joypad::new(),
+            serial: Serial::new(),
+            timer: Timer::new(),
+            apu: Apu::new(),
             wram: [0; 2 * WRAM_BANK_SIZE],
             hram: [0; HRAM_SIZE],
+            intf: 0xE1,
+            inte: 0x00,
         };
         mmu.reset();
         mmu
@@ -68,40 +72,8 @@ impl Mmu {
     pub fn reset(&mut self) {
         self.cart.reset();
         self.ppu.reset();
-        self.wb(P1, 0xCF); // CGB: C7 or CF
-        self.wb(SB, 0x00);
-        self.wb(SC, 0x7E); // CGB: 7F
 
-        // Timer
-        self.wb(TIMER_DIV, 0x18); // CGB: ?
-        self.wb(TIMER_TIMA, 0x00);
-        self.wb(TIMER_TMA, 0x00);
-        self.wb(TIMER_TAC, 0xF8);
-
-        self.wb(INT_FLAGS, 0xE1);
-
-        // NR
-        self.wb(0xFF10, 0x80);
-        self.wb(0xFF11, 0xBF);
-        self.wb(0xFF12, 0xF3);
-        self.wb(0xFF13, 0xFF);
-        self.wb(0xFF14, 0xBF);
-        self.wb(0xFF16, 0x3F);
-        self.wb(0xFF17, 0x00);
-        self.wb(0xFF18, 0xFF);
-        self.wb(0xFF19, 0xBF);
-        self.wb(0xFF1A, 0x7F);
-        self.wb(0xFF1B, 0xFF);
-        self.wb(0xFF1C, 0x9F);
-        self.wb(0xFF1D, 0xFF);
-        self.wb(0xFF1E, 0xBF);
-        self.wb(0xFF20, 0xFF);
-        self.wb(0xFF21, 0x00);
-        self.wb(0xFF22, 0x00);
-        self.wb(0xFF23, 0xBF);
-        self.wb(0xFF24, 0x77);
-        self.wb(0xFF25, 0xF3);
-        self.wb(0xFF26, 0xF1);
+        self.intf = 0xE1;
 
         self.wb(LCDC, 0x91);
         self.wb(STAT, 0x81); // CGB: ?
@@ -126,7 +98,8 @@ impl Mmu {
         self.wb(OCPS, 0xFF); // CGB: ?
         self.wb(OCPD, 0xFF); // CGB: ?
         self.wb(SVBK, 0xFF);
-        self.wb(INT_ENABLE, 0x00);
+
+        self.inte = 0x00;
     }
 
     pub fn b(&self, address: u16) -> u8 {
@@ -139,8 +112,13 @@ impl Mmu {
             0xE000..=0xFDFF => self.wram[(address as usize) - 0xE000], // mirror of 0xC000..0xDDFF, prohibited to use, (used)
             0xFE00..=0xFE9F => todo!(), // oam (sprite attribute table)
             0xFEA0..=0xFEFF => 0,       // unusable, prohibited to use
-            0xFF00..=0xFF7F => todo!(), // io registers
-            0xFF80..=0xFFFF => self.hram[(address as usize) - 0xFF80], // hram
+            0xFF00 => self.joypad.b(address), // io registers begin
+            0xFF01..=0xFF02 => self.serial.b(address),
+            0xFF04..=0xFF07 => self.timer.b(address),
+            0xFF0F => self.intf,
+            0xFF10..=0xFF3F => self.apu.b(address),
+            0xFFFF => self.inte,
+            0xFF03..=0xFFFF => self.hram[(address as usize) - 0xFF00], // hram that is not special
         }
     }
 
@@ -158,8 +136,13 @@ impl Mmu {
             0xE000..=0xFDFF => self.wram[(address as usize) - 0xE000] = value, // mirror of 0xC000..0xDDFF, prohibited to use, (used)
             0xFE00..=0xFE9F => todo!(), // oam (sprite attribute table)
             0xFEA0..=0xFEFF => (),      // unusable, prohibited to use
-            0xFF00..=0xFF7F => todo!(), // io registers
-            0xFF80..=0xFFFF => self.hram[(address as usize) - 0xFF80] = value, // hram
+            0xFF00 => self.joypad.wb(address, value), // io registers begin
+            0xFF01..=0xFF02 => self.serial.wb(address, value),
+            0xFF04..=0xFF07 => self.timer.wb(address, value),
+            0xFF0F => self.intf = value,
+            0xFF10..=0xFF3F => self.apu.wb(address, value),
+            0xFFFF => self.inte = value,
+            0xFF03..=0xFFFF => self.hram[(address as usize) - 0xFF00] = value, // hram that is not special
         }
     }
 

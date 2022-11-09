@@ -20,6 +20,20 @@ pub struct Cpu {
 }
 
 impl Cpu {
+    pub(crate) fn print(&self) -> String {
+        format!(
+            "\ta: {:#04x}\n\tf: {:#04x}\n\tb: {:#04x}\n\tc: {:#04x}\n\td: {:#04x}\n\te: {:#04x}\n\th: {:#04x}\n\tl: {:#04x}\n\tsp: {:#06x}",
+            self.r.get_8(Reg8::A),
+            self.r.get_8(Reg8::F),
+            self.r.get_8(Reg8::B),
+            self.r.get_8(Reg8::C),
+            self.r.get_8(Reg8::D),
+            self.r.get_8(Reg8::E),
+            self.r.get_8(Reg8::H),
+            self.r.get_8(Reg8::L),
+            self.r.get_16(Reg16::SP),
+        )
+    }
     pub fn new(cart: Cartridge, ppu: Ppu) -> Self {
         let m = Mmu::new(cart, ppu);
         Self {
@@ -46,14 +60,17 @@ impl Cpu {
 
     pub fn handle_interrupt(&mut self) {}
 
-    pub fn step(&mut self) -> u32 {
+    pub fn step(&mut self) -> (u16, u8, u32) {
         self.toggle_interrupt();
         self.handle_interrupt();
-        if !self.halt {
+        let pc = self.r.pc;
+        let instr = self.m.b(self.r.pc);
+        let cycles = if !self.halt {
             self.step_instr()
         } else {
             4 // HALT = 4 cycles
-        }
+        };
+        (pc, instr, cycles)
     }
 
     fn alu_arg_get(&self, offset: u32) -> u8 {
@@ -74,27 +91,27 @@ impl Cpu {
         };
     }
 
-    pub fn step_pc_b(&mut self) -> u8 {
+    fn step_pc_b(&mut self) -> u8 {
         let next = self.m.b(self.r.pc);
         self.r.pc = self.r.pc.wrapping_add(1);
         next
     }
 
-    pub fn step_pc_w(&mut self) -> u16 {
+    fn step_pc_w(&mut self) -> u16 {
         let next = self.m.w(self.r.pc);
         self.r.pc = self.r.pc.wrapping_add(2);
         next
     }
 
-    pub fn pop(&mut self) -> u16 {
+    fn pop(&mut self) -> u16 {
         self.m.w(self.r.get_sp_pop())
     }
 
-    pub fn push(&mut self, value: u16) {
+    fn push(&mut self, value: u16) {
         self.m.ww(self.r.get_sp_push(), value)
     }
 
-    pub fn step_instr(&mut self) -> u32 {
+    fn step_instr(&mut self) -> u32 {
         let instr = self.step_pc_b();
         let mut cycles = CYCLES[instr as usize];
         match instr {
@@ -456,7 +473,7 @@ impl Cpu {
         cycles
     }
 
-    pub fn step_instr_cb(&mut self) -> u32 {
+    fn step_instr_cb(&mut self) -> u32 {
         let instr = self.step_pc_b();
         match instr {
             0x00..=0x07 => {
