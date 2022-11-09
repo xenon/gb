@@ -38,11 +38,26 @@ pub struct CartridgeInfo {
     pub region: Region,
     pub version: u8,
     pub header_checksum: u8,
+    pub old_licensee_code: OldLicenseeCode,
+    pub new_licensee_code: Option<NewLicenseeCode>,
 }
 
 impl CartridgeInfo {
     pub fn new_from_cartridge(bytes: &Vec<u8>) -> Result<Self, Box<dyn Error>> {
         if bytes.len() > 0x14D {
+            let old_licensee_code = OldLicenseeCode::try_from(bytes[0x014B])?;
+            let new_licensee_code = match old_licensee_code {
+                OldLicenseeCode::NewLicensee => {
+                    match NewLicenseeCode::try_from(bytes[0x0145] as u16) {
+                        Ok(nlc) => Some(nlc),
+                        Err(_) => {
+                            eprintln!("New Licensee code was indicated but it failed to read!");
+                            None
+                        }
+                    }
+                }
+                _ => None,
+            };
             let title = std::str::from_utf8(&bytes[0x0134..0x0143]).map(|s| s.to_string())?;
 
             let cart_type = CartType::try_from(bytes[0x0147])?;
@@ -61,58 +76,48 @@ impl CartridgeInfo {
             let version = bytes[0x014C];
             let header_checksum = bytes[0x014D];
 
-            let battery = match cart_type {
+            let battery = matches!(
+                cart_type,
                 CartType::Mbc1RamBat
-                | CartType::Mbc2Bat
-                | CartType::RomRamBat
-                | CartType::Mmm01RamBat
-                | CartType::Mbc3BatTim
-                | CartType::Mbc3RamBatTim
-                | CartType::Mbc3RamBat
-                | CartType::Mbc5RamBat
-                | CartType::Mbc5RamBatRum
-                | CartType::Mbc7RamBatRumSen => true,
-                _ => false,
-            };
-
-            let ram = match cart_type {
+                    | CartType::Mbc2Bat
+                    | CartType::RomRamBat
+                    | CartType::Mmm01RamBat
+                    | CartType::Mbc3BatTim
+                    | CartType::Mbc3RamBatTim
+                    | CartType::Mbc3RamBat
+                    | CartType::Mbc5RamBat
+                    | CartType::Mbc5RamBatRum
+                    | CartType::Mbc7RamBatRumSen
+            );
+            let ram = matches!(
+                cart_type,
                 CartType::Mbc1Ram
-                | CartType::Mbc1RamBat
-                | CartType::RomRam
-                | CartType::RomRamBat
-                | CartType::Mmm01Ram
-                | CartType::Mmm01RamBat
-                | CartType::Mbc3RamBatTim
-                | CartType::Mbc3Ram
-                | CartType::Mbc3RamBat
-                | CartType::Mbc5Ram
-                | CartType::Mbc5RamBat
-                | CartType::Mbc5RamRum
-                | CartType::Mbc5RamBatRum
-                | CartType::Mbc6
-                | CartType::Mbc7RamBatRumSen
-                | CartType::Huc3
-                | CartType::Huc1RamBat => true,
-                _ => false,
-            };
-
-            let rumble = match cart_type {
+                    | CartType::Mbc1RamBat
+                    | CartType::RomRam
+                    | CartType::RomRamBat
+                    | CartType::Mmm01Ram
+                    | CartType::Mmm01RamBat
+                    | CartType::Mbc3RamBatTim
+                    | CartType::Mbc3Ram
+                    | CartType::Mbc3RamBat
+                    | CartType::Mbc5Ram
+                    | CartType::Mbc5RamBat
+                    | CartType::Mbc5RamRum
+                    | CartType::Mbc5RamBatRum
+                    | CartType::Mbc6
+                    | CartType::Mbc7RamBatRumSen
+                    | CartType::Huc3
+                    | CartType::Huc1RamBat
+            );
+            let rumble = matches!(
+                cart_type,
                 CartType::Mbc5Rum
-                | CartType::Mbc5RamRum
-                | CartType::Mbc5RamBatRum
-                | CartType::Mbc7RamBatRumSen => true,
-                _ => false,
-            };
-
-            let sensor = match cart_type {
-                CartType::Mbc7RamBatRumSen => true,
-                _ => false,
-            };
-
-            let time = match cart_type {
-                CartType::Mbc3BatTim | CartType::Mbc3RamBatTim => true,
-                _ => false,
-            };
+                    | CartType::Mbc5RamRum
+                    | CartType::Mbc5RamBatRum
+                    | CartType::Mbc7RamBatRumSen
+            );
+            let sensor = matches!(cart_type, CartType::Mbc7RamBatRumSen);
+            let time = matches!(cart_type, CartType::Mbc3BatTim | CartType::Mbc3RamBatTim);
 
             Ok(Self {
                 cart_type,
@@ -129,6 +134,8 @@ impl CartridgeInfo {
                 region,
                 version,
                 header_checksum,
+                old_licensee_code,
+                new_licensee_code,
             })
         } else {
             Err(Box::new(CartridgeError::InvalidCartridgeSize))
@@ -214,6 +221,235 @@ pub enum Region {
 }
 
 impl fmt::Display for Region {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Clone, Debug, Eq, IntoPrimitive, PartialEq, TryFromPrimitive)]
+#[repr(u8)]
+pub enum OldLicenseeCode {
+    None = 0x00,
+    Nintendo = 0x01,
+    Capcom = 0x08,
+    HotB = 0x09,
+    Jaleco = 0x0A,
+    CoconutsJapan = 0x0B,
+    EliteSystems = 0x0C,
+    EA = 0x13,
+    Hudsonsoft = 0x18,
+    ITCEntertainment = 0x19,
+    Yanoman = 0x1A,
+    JapanClary = 0x1D,
+    VirginInteractive = 0x1F,
+    PCMComplete = 0x24,
+    SanX = 0x25,
+    KotobukiSystems = 0x28,
+    Seta = 0x29,
+    Infogrames = 0x30,
+    Nintendo2 = 0x31,
+    Bandai = 0x32,
+    NewLicensee = 0x33,
+    Konami = 0x34,
+    HectorSoft = 0x35,
+    Capcom2 = 0x38,
+    Banpresto = 0x39,
+    Entertainmenti = 0x3C,
+    Gremlin = 0x3E,
+    Ubisoft = 0x41,
+    Atlus = 0x42,
+    Malibu = 0x44,
+    Angel = 0x46,
+    SpectrumHoloby = 0x47,
+    Irem = 0x49,
+    VirginInteractive2 = 0x4A,
+    Malibu2 = 0x4D,
+    USGold = 0x4F,
+    Absolute = 0x50,
+    Acclaim = 0x51,
+    Activision = 0x52,
+    AmericanSammy = 0x53,
+    GameTek = 0x54,
+    ParkPlace = 0x55,
+    LJN = 0x56,
+    Matchbox = 0x57,
+    MiltonBradley = 0x59,
+    Mindscape = 0x5A,
+    Romstar = 0x5B,
+    NaxatSoft = 0x5C,
+    Tradewest = 0x5D,
+    Titus = 0x60,
+    VirginInteractive3 = 0x61,
+    OceanInteractive = 0x67,
+    EA2 = 0x69,
+    EliteSystems2 = 0x6E,
+    ElectroBrain = 0x6F,
+    Infogrames2 = 0x70,
+    Interplay = 0x71,
+    Broderbund = 0x72,
+    SculpteredSoft = 0x73,
+    TheSalesCurve = 0x75,
+    Thq = 0x78,
+    Accolade = 0x79,
+    TriffixEntertainment = 0x7A,
+    Microprose = 0x7C,
+    Kemco = 0x7F,
+    MisawaEntertainment = 0x80,
+    Lozc = 0x83,
+    TokumaShotenIntermedia = 0x86,
+    BulletProofSoftware = 0x8B,
+    VicTokai = 0x8C,
+    Ape = 0x8E,
+    IMax = 0x8F,
+    ChunsoftCo = 0x91,
+    VideoSystem = 0x92,
+    TsubarayaProductionsCo = 0x93,
+    VarieCorporation = 0x95,
+    YonezawaSPal = 0x96,
+    Kaneko = 0x97,
+    Arc = 0x99,
+    NihonBussan = 0x9A,
+    Tecmo = 0x9B,
+    Imagineer = 0x9C,
+    Banpresto2 = 0x9D,
+    Nova = 0x9F,
+    HoriElectric = 0xA1,
+    Bandai2 = 0xA2,
+    Konami2 = 0xA4,
+    Kawada = 0xA6,
+    Takara = 0xA7,
+    TechnosJapan = 0xA9,
+    Broderbund2 = 0xAA,
+    ToeiAnimation = 0xAC,
+    Toho = 0xAD,
+    Namco = 0xAF,
+    Acclaim2 = 0xB0,
+    ASCIIorNexsoft = 0xB1,
+    Bandai3 = 0xB2,
+    SquareEnix = 0xB4,
+    HALLaboratory = 0xB6,
+    SNK = 0xB7,
+    PonyCanyon = 0xB9,
+    CultureBrain = 0xBA,
+    Sunsoft = 0xBB,
+    SonyImagesoft = 0xBD,
+    Sammy = 0xBF,
+    Taito = 0xC0,
+    Kemco2 = 0xC2,
+    Squaresoft = 0xC3,
+    TokumaShotenIntermedia2 = 0xC4,
+    DataEast = 0xC5,
+    Tonkinhouse = 0xC6,
+    Koei = 0xC8,
+    UFL = 0xC9,
+    Ultra = 0xCA,
+    Vap = 0xCB,
+    UseCorporation = 0xCC,
+    Meldac = 0xCD,
+    PonyCanyonor = 0xCE,
+    Angel2 = 0xCF,
+    Taito2 = 0xD0,
+    Sofel = 0xD1,
+    Quest = 0xD2,
+    SigmaEnterprises = 0xD3,
+    ASKKodanshaCo = 0xD4,
+    NaxatSoft2 = 0xD6,
+    CopyaSystem = 0xD7,
+    Banpresto3 = 0xD9,
+    Tomy = 0xDA,
+    LJN2 = 0xDB,
+    NCS = 0xDD,
+    Human = 0xDE,
+    Altron = 0xDF,
+    Jaleco2 = 0xE0,
+    TowaChiki = 0xE1,
+    Yutaka = 0xE2,
+    Varie = 0xE3,
+    Epcoh = 0xE5,
+    Athena = 0xE7,
+    AsmikACEEntertainment = 0xE8,
+    Natsume = 0xE9,
+    KingRecords = 0xEA,
+    Atlus2 = 0xEB,
+    EpicSonyRecords = 0xEC,
+    IGS = 0xEE,
+    AWave = 0xF0,
+    ExtremeEntertainment = 0xF3,
+    LJN3 = 0xFF,
+}
+
+impl fmt::Display for OldLicenseeCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Clone, Debug, Eq, IntoPrimitive, PartialEq, TryFromPrimitive)]
+#[repr(u16)]
+pub enum NewLicenseeCode {
+    None = 0x00,
+    NintendoRandD1 = 0x01,
+    Capcom = 0x08,
+    ElectronicArts = 0x13,
+    HudsonSoft = 0x18,
+    Bai = 0x19,
+    Kss = 0x20,
+    Pow = 0x22,
+    PCMComplete = 0x24,
+    Sanx = 0x25,
+    KemcoJapan = 0x28,
+    Seta = 0x29,
+    Viacom = 0x30,
+    Nintendo = 0x31,
+    Bandai = 0x32,
+    OceanAcclaim = 0x33,
+    Konami = 0x34,
+    Hector = 0x35,
+    Taito = 0x37,
+    Hudson = 0x38,
+    Banpresto = 0x39,
+    UbiSoft = 0x41,
+    Atlus = 0x42,
+    Malibu = 0x44,
+    Angel = 0x46,
+    BulletProof = 0x47,
+    Irem = 0x49,
+    Absolute = 0x50,
+    Acclaim = 0x51,
+    Activision = 0x52,
+    Americansammy = 0x53,
+    Konami2 = 0x54,
+    Hitechentertainment = 0x55,
+    LJN = 0x56,
+    Matchbox = 0x57,
+    Mattel = 0x58,
+    MiltonBradley = 0x59,
+    Titus = 0x60,
+    Virgin = 0x61,
+    LucasArts = 0x64,
+    Ocean = 0x67,
+    ElectronicArts2 = 0x69,
+    Infogrames = 0x70,
+    Interplay = 0x71,
+    Broderbund = 0x72,
+    Sculptured = 0x73,
+    Sci = 0x75,
+    THQ = 0x78,
+    Accolade = 0x79,
+    Misawa = 0x80,
+    Lozc = 0x83,
+    TokumaShotenIntermedia = 0x86,
+    TsukudaOriginal = 0x87,
+    Chunsoft = 0x91,
+    Videosystem = 0x92,
+    OceanAcclaim2 = 0x93,
+    Varie = 0x95,
+    Yonezawaspal = 0x96,
+    Kaneko = 0x97,
+    Packinsoft = 0x99,
+    KonamiYuGiOh = 0xA4,
+}
+impl fmt::Display for NewLicenseeCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self)
     }

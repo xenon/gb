@@ -52,6 +52,11 @@ fn main() {
                     println!("Sgb Flag: {}", c.info.sgb_flag);
                     println!("Region: {}", c.info.region);
                     println!("Version: {}", c.info.version);
+                    if let Some(l) = &c.info.new_licensee_code {
+                        println!("New Licensee: {}", l);
+                    } else {
+                        println!("Old Licensee: {}", c.info.old_licensee_code);
+                    }
                     print!("Header checksum...");
                     if c.header_checksum() {
                         println!("passed!");

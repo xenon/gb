@@ -35,11 +35,11 @@ impl Cartridge {
         self.rom[address as usize] // trivial rom for ROM only carts
     }
 
-    pub fn rom_wb(&self, address: u16, value: u8) {}
+    pub fn rom_wb(&self, _address: u16, _value: u8) {}
 
-    pub fn ram_b(&self, address: u16) -> u8 {
-        0 // trivial rom for ROM only carts
+    pub fn ram_b(&self, _address: u16) -> u8 {
+        0 // trivial ram for ROM only carts
     }
 
-    pub fn ram_wb(&self, address: u16, value: u8) {}
+    pub fn ram_wb(&self, _address: u16, _value: u8) {}
 }

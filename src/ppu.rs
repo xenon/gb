@@ -2,7 +2,7 @@ const PPU_BANK_SIZE: usize = 0x2000;
 
 pub struct Ppu {
     ram: [u8; PPU_BANK_SIZE], // CGB: 2 x PPU_BANK_SIZE for
-                              //CGB: bank: u8,
+                              // CGB: bank: u8,
 }
 
 impl Ppu {
@@ -19,7 +19,7 @@ impl Ppu {
     }
 
     pub fn b(&self, address: u16) -> u8 {
-        self.ram[address as usize - 0x8000] // trivial rom for ROM only carts
+        self.ram[address as usize - 0x8000]
     }
 
     pub fn wb(&mut self, address: u16, value: u8) {

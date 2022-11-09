@@ -1,10 +1,17 @@
+use num_enum::UnsafeFromPrimitive;
+
 pub struct Registers {
-    r: [u8; 8], // a, f, b, c, d, e, h, l
+    r: [u8; 10], // a, f, b, c, d, e, h, l, (sp), (pc)
     pub pc: u16,
-    pub sp: u16,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+impl Default for Registers {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, UnsafeFromPrimitive)]
 #[repr(u32)]
 pub enum Reg8 {
     A = 0,
@@ -17,13 +24,26 @@ pub enum Reg8 {
     L = 7,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+impl Reg8 {
+    pub(crate) fn get(val: u32) -> Reg8 {
+        unsafe { Reg8::from_unchecked(val) }
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, UnsafeFromPrimitive)]
 #[repr(u32)]
 pub enum Reg16 {
     AF = 0,
     BC = 1,
     DE = 2,
     HL = 3,
+    SP = 4,
+}
+
+impl Reg16 {
+    pub(crate) fn get(val: u32) -> Reg16 {
+        unsafe { Reg16::from_unchecked(val) }
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -38,18 +58,16 @@ pub enum Flag {
 impl Registers {
     pub fn new() -> Self {
         let mut r = Self {
-            r: [0; 8],
-            pc: 0,
-            sp: 0,
+            r: [0; 10],
+            pc: 0x100,
         };
         r.reset();
         r
     }
 
     pub fn reset(&mut self) {
-        self.r = [0x01, 0xB0, 0x00, 0x13, 0x00, 0xD8, 0x01, 0x4D];
+        self.r = [0x01, 0xB0, 0x00, 0x13, 0x00, 0xD8, 0x01, 0x4D, 0xFF, 0xFE];
         self.pc = 0x100;
-        self.sp = 0xFFFE;
     }
 
     pub fn get_8(&self, r: Reg8) -> u8 {
@@ -59,6 +77,29 @@ impl Registers {
     pub fn get_16(&self, r: Reg16) -> u16 {
         let base = 2 * (r as usize);
         ((self.r[base] as u16) << 8) | (self.r[base + 1] as u16)
+    }
+
+    /// Only use when HL is to be incremened or decremented, otherwise use get_16(Reg16::HL)
+    pub fn get_hl(&mut self, inc: bool) -> u16 {
+        let hl = self.get_16(Reg16::HL);
+        if inc {
+            self.set_16(Reg16::HL, hl.wrapping_add(1));
+        } else {
+            self.set_16(Reg16::HL, hl.wrapping_sub(1));
+        }
+        hl
+    }
+
+    pub fn get_sp_pop(&mut self) -> u16 {
+        let sp = self.get_16(Reg16::SP);
+        self.set_16(Reg16::SP, sp.wrapping_add(2));
+        sp
+    }
+
+    pub fn get_sp_push(&mut self) -> u16 {
+        let sp = self.get_16(Reg16::SP).wrapping_sub(2);
+        self.set_16(Reg16::SP, sp);
+        sp
     }
 
     pub fn set_8(&mut self, r: Reg8, value: u8) {
@@ -342,6 +383,15 @@ impl Registers {
         self.set_flag(Flag::H, (hl_val & 0x07FF) + (n & 0x07FF) > 0x07FF);
         self.set_flag(Flag::N, false);
         res
+    }
+
+    pub fn add16_imm_i8(&mut self, n: u16, imm: i8) -> u16 {
+        let i = imm as i16 as u16;
+        self.set_flag(Flag::C, (n & 0xFF) + (i & 0xFF) > 0xFF);
+        self.set_flag(Flag::H, (n & 0x0F) + (i & 0x0F) > 0x0F);
+        self.set_flag(Flag::N, false);
+        self.set_flag(Flag::Z, false);
+        n.wrapping_add(i)
     }
 
     pub fn inc16(&self, n: u16) -> u16 {
