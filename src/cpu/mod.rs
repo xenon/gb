@@ -70,7 +70,7 @@ impl Cpu {
     }
 
     pub fn handle_interrupt(&mut self) -> bool {
-        if self.ime || self.halt && (self.m.has_pending_interrupts()) {
+        if (self.ime || self.halt) && self.m.has_pending_interrupts() {
             self.halt = false;
             if self.ime {
                 self.ime = false;
