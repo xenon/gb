@@ -108,6 +108,50 @@ fn main() {
                             return;
                         }
 
+                        // Joypad
+                        // Directional
+                        if input.key_pressed(VirtualKeyCode::W) {
+                            cpu.m.joypad.press(joypad::Button::Up);
+                        } else if input.key_released(VirtualKeyCode::W) {
+                            cpu.m.joypad.release(joypad::Button::Up);
+                        }
+                        if input.key_pressed(VirtualKeyCode::S) {
+                            cpu.m.joypad.press(joypad::Button::Down);
+                        } else if input.key_released(VirtualKeyCode::S) {
+                            cpu.m.joypad.release(joypad::Button::Down);
+                        }
+                        if input.key_pressed(VirtualKeyCode::A) {
+                            cpu.m.joypad.press(joypad::Button::Left);
+                        } else if input.key_released(VirtualKeyCode::A) {
+                            cpu.m.joypad.release(joypad::Button::Left);
+                        }
+                        if input.key_pressed(VirtualKeyCode::D) {
+                            cpu.m.joypad.press(joypad::Button::Right);
+                        } else if input.key_released(VirtualKeyCode::D) {
+                            cpu.m.joypad.release(joypad::Button::Right);
+                        }
+                        // Action
+                        if input.key_pressed(VirtualKeyCode::Comma) {
+                            cpu.m.joypad.press(joypad::Button::B);
+                        } else if input.key_released(VirtualKeyCode::Comma) {
+                            cpu.m.joypad.release(joypad::Button::B);
+                        }
+                        if input.key_pressed(VirtualKeyCode::Period) {
+                            cpu.m.joypad.press(joypad::Button::A);
+                        } else if input.key_released(VirtualKeyCode::Period) {
+                            cpu.m.joypad.release(joypad::Button::A);
+                        }
+                        if input.key_pressed(VirtualKeyCode::Return) {
+                            cpu.m.joypad.press(joypad::Button::Start);
+                        } else if input.key_released(VirtualKeyCode::Return) {
+                            cpu.m.joypad.release(joypad::Button::Start);
+                        }
+                        if input.key_pressed(VirtualKeyCode::RShift) {
+                            cpu.m.joypad.press(joypad::Button::Select);
+                        } else if input.key_released(VirtualKeyCode::RShift) {
+                            cpu.m.joypad.release(joypad::Button::Select);
+                        }
+
                         // Resize the window
                         if let Some(size) = input.window_resized() {
                             pixels.resize_surface(size.width, size.height);

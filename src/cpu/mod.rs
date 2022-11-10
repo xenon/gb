@@ -14,7 +14,7 @@ pub const HZ: u32 = 4194304; // 2^22
 
 pub struct Cpu {
     r: Registers,
-    m: Mmu,
+    pub m: Mmu,
     halt: bool,
     ime: bool,
     pending_ei: bool,
@@ -162,7 +162,7 @@ impl Cpu {
                 self.r.set_16(dest, self.r.inc16(self.r.get_16(dest)))
             }
             0x04 | 0x14 | 0x24 => {
-                let dest = Reg8::get((instr as u32 / 16) * 2 + 2); // inc
+                let dest = Reg8::get(((instr as u32 / 16) * 2) + 2); // inc
                 let res = self.r.inc(self.r.get_8(dest));
                 self.r.set_8(dest, res);
             }
@@ -173,7 +173,7 @@ impl Cpu {
                 self.m.wb(hl, res); // inc (hl)
             }
             0x05 | 0x15 | 0x25 => {
-                let dest = Reg8::get((instr as u32 / 16) * 2 + 2); // dec
+                let dest = Reg8::get(((instr as u32 / 16) * 2) + 2); // dec
                 let res = self.r.dec(self.r.get_8(dest));
                 self.r.set_8(dest, res);
             }
@@ -185,7 +185,7 @@ impl Cpu {
             }
             0x06 | 0x16 | 0x26 => {
                 let imm = self.step_pc_b();
-                let dest = Reg8::get((instr as u32 / 16) * 2 + 2);
+                let dest = Reg8::get(((instr as u32 / 16) * 2) + 2);
                 self.r.set_8(dest, imm); // ld n, d8
             }
             0x36 => {
@@ -249,7 +249,7 @@ impl Cpu {
                 self.r.set_16(dest, self.r.dec16(self.r.get_16(dest)))
             }
             0x0C | 0x1C | 0x2C => {
-                let dest = Reg8::get((instr as u32 / 16) * 2 + 3); // inc
+                let dest = Reg8::get(((instr as u32 / 16) * 2) + 3); // inc
                 let res = self.r.inc(self.r.get_8(dest));
                 self.r.set_8(dest, res);
             }
@@ -258,7 +258,7 @@ impl Cpu {
                 self.r.set_8(Reg8::A, res);
             }
             0x0D | 0x1D | 0x2D => {
-                let dest = Reg8::get((instr as u32 / 16) * 2 + 3); // dec
+                let dest = Reg8::get(((instr as u32 / 16) * 2) + 3); // dec
                 let res = self.r.dec(self.r.get_8(dest));
                 self.r.set_8(dest, res);
             }
@@ -271,7 +271,7 @@ impl Cpu {
                 let dest = if instr == 0x3E {
                     Reg8::A
                 } else {
-                    Reg8::get((instr as u32 / 16) * 2 + 3)
+                    Reg8::get(((instr as u32 / 16) * 2) + 3)
                 };
                 self.r.set_8(dest, imm); // ld n, d8
             }
@@ -291,7 +291,7 @@ impl Cpu {
                 self.r.ccf(); // ccf
             }
             0x40..=0x75 | 0x77 | 0x78..=0x7F => {
-                let dest = instr as u32 - 0x40 / 8; // ld
+                let dest = (instr as u32 - 0x40) / 8; // ld
                 let res = self.alu_arg_get((instr as u32 - 0x40) % 8);
                 self.alu_arg_set(dest, res);
             }
@@ -371,7 +371,7 @@ impl Cpu {
                 let dest = if instr == 0xF1 {
                     Reg16::AF
                 } else {
-                    Reg16::get(instr as u32 - 0xC0 / 16 + 1)
+                    Reg16::get(((instr as u32 - 0xC0) / 16) + 1)
                 };
                 let res = self.pop();
                 self.r.set_16(dest, res); // pop
@@ -405,7 +405,7 @@ impl Cpu {
                 let src = if instr == 0xF1 {
                     Reg16::AF
                 } else {
-                    Reg16::get(instr as u32 - 0xC0 / 16 + 1)
+                    Reg16::get(((instr as u32 - 0xC0) / 16) + 1)
                 }; // push
                 self.push(self.r.get_16(src));
             }
