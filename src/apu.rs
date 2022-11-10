@@ -76,8 +76,13 @@ impl Apu {
             NR30..=NR34 => self.m_wave[(address - NR30) as usize],
             NR40..=NR44 => self.m_noise[(address - NR40) as usize],
             WAVE_BEGIN..=WAVE_END => self.m_wave_table[(address - WAVE_BEGIN) as usize],
-            NR10..=WAVE_END => 0x00, // unused values
-            _ => unreachable!(),
+            _ => {
+                if (NR10..=WAVE_END).contains(&address) {
+                    0x00 // unused values
+                } else {
+                    unreachable!()
+                }
+            }
         }
     }
 
@@ -90,8 +95,11 @@ impl Apu {
             NR30..=NR34 => self.m_wave[(address - NR30) as usize] = value,
             NR40..=NR44 => self.m_noise[(address - NR40) as usize] = value,
             WAVE_BEGIN..=WAVE_END => self.m_wave_table[(address - WAVE_BEGIN) as usize] = value,
-            NR10..=WAVE_END => (), // unused values
-            _ => unreachable!(),
+            _ => {
+                if !(NR10..=WAVE_END).contains(&address) {
+                    unreachable!()
+                }
+            }
         }
     }
 }

@@ -1,4 +1,4 @@
-#![allow(arithmetic_overflow)]
+#![allow(clippy::new_without_default)]
 
 use cart::Cartridge;
 use clap::Parser;

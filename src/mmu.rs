@@ -102,6 +102,15 @@ impl Mmu {
         self.inte = 0x00;
     }
 
+    pub fn step(&mut self, cycles: u32) {
+        if self.joypad.step() {
+            self.intf |= 0b10000;
+        }
+        if self.timer.step(cycles) {
+            self.intf |= 0b00100;
+        }
+    }
+
     pub fn b(&self, address: u16) -> u8 {
         match address {
             0x0000..=0x7FFF => self.cart.rom_b(address), // cart read rom

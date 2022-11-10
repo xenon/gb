@@ -10,6 +10,8 @@ pub mod registers;
 #[cfg(test)]
 mod test;
 
+pub const HZ: u32 = 4194304;
+
 pub struct Cpu {
     r: Registers,
     m: Mmu,
@@ -70,6 +72,7 @@ impl Cpu {
         } else {
             4 // HALT = 4 cycles
         };
+        self.m.step(cycles);
         (pc, instr, cycles)
     }
 
