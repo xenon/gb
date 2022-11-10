@@ -10,7 +10,7 @@ pub mod registers;
 #[cfg(test)]
 mod test;
 
-pub const HZ: u32 = 4194304;
+pub const HZ: u32 = 4194304; // 2^22
 
 pub struct Cpu {
     r: Registers,
@@ -58,21 +58,43 @@ impl Cpu {
         self.pending_di = false;
     }
 
-    pub fn toggle_interrupt(&mut self) {}
+    pub fn toggle_interrupt(&mut self) {
+        if self.pending_di {
+            self.ime = false;
+            self.pending_di = false;
+        }
+        if self.pending_ei {
+            self.ime = true;
+            self.pending_ei = false;
+        }
+    }
 
-    pub fn handle_interrupt(&mut self) {}
+    pub fn handle_interrupt(&mut self) -> bool {
+        if self.ime || self.halt && (self.m.has_pending_interrupts()) {
+            self.halt = false;
+            if self.ime {
+                self.ime = false;
+                let interrupt = self.m.get_interrupt();
+                self.m.disable_interrupt(interrupt);
+                self.push(self.r.pc);
+                self.r.pc = self.m.get_interrupt_handler(interrupt);
+                return true;
+            }
+        }
+        false
+    }
 
     pub fn step(&mut self) -> (u16, u8, u32) {
         self.toggle_interrupt();
         self.handle_interrupt();
         let pc = self.r.pc;
         let instr = self.m.b(self.r.pc);
-        let cycles = if !self.halt {
-            self.step_instr()
+        let cycles = if self.handle_interrupt() || self.halt {
+            4
         } else {
-            4 // HALT = 4 cycles
+            self.step_instr()
         };
-        self.m.step(cycles);
+        self.m.step(cycles); // run other devices
         (pc, instr, cycles)
     }
 

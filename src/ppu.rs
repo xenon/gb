@@ -1,3 +1,6 @@
+pub const LCD_WIDTH: u32 = 160;
+pub const LCD_HEIGHT: u32 = 144;
+
 const PPU_BANK_SIZE: usize = 0x2000;
 
 pub struct Ppu {

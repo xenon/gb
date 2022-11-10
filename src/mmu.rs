@@ -1,3 +1,5 @@
+use num_enum::{IntoPrimitive, UnsafeFromPrimitive};
+
 use crate::{apu::Apu, cart::Cartridge, joypad::Joypad, ppu::Ppu, serial::Serial, timer::Timer};
 
 // Sizes
@@ -51,6 +53,17 @@ pub struct Mmu {
     inte: u8,
 }
 
+#[allow(dead_code)] // Doesn't understand UnsafeFromPrimitive uses all the values
+#[derive(Copy, Clone, Eq, IntoPrimitive, PartialEq, UnsafeFromPrimitive)]
+#[repr(u8)]
+pub enum Interrupt {
+    VBlank = 0,
+    LCDStat = 1,
+    Timer = 2,
+    Serial = 3,
+    Joypad = 4,
+}
+
 impl Mmu {
     pub fn new(cart: Cartridge, ppu: Ppu) -> Self {
         let mut mmu = Mmu {
@@ -100,6 +113,36 @@ impl Mmu {
         self.wb(SVBK, 0xFF);
 
         self.inte = 0x00;
+    }
+
+    pub fn has_pending_interrupts(&self) -> bool {
+        (self.inte & self.intf) != 0
+    }
+
+    pub fn get_interrupt(&self) -> Interrupt {
+        let pending = self.inte & self.intf;
+        if pending & 0b00001 != 0 {
+            Interrupt::VBlank
+        } else if pending & 0b00010 != 0 {
+            Interrupt::LCDStat
+        } else if pending & 0b00100 != 0 {
+            Interrupt::Timer
+        } else if pending & 0b01000 != 0 {
+            Interrupt::Serial
+        } else if pending & 0b10000 != 0 {
+            Interrupt::Joypad
+        } else {
+            unreachable!();
+        }
+    }
+
+    pub fn disable_interrupt(&mut self, i: Interrupt) {
+        let mask: u8 = 1 << <Interrupt as Into<u8>>::into(i);
+        self.inte &= !mask;
+    }
+
+    pub fn get_interrupt_handler(&self, i: Interrupt) -> u16 {
+        0x0040 + (8 * <Interrupt as Into<u8>>::into(i)) as u16
     }
 
     pub fn step(&mut self, cycles: u32) {
