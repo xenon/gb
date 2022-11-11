@@ -10,18 +10,6 @@ const HRAM_SIZE: usize = 0x100;
 
 pub const INTF: u16 = 0xFF0F;
 
-pub const LCDC: u16 = 0xFF40;
-pub const STAT: u16 = 0xFF41;
-pub const SCY: u16 = 0xFF42;
-pub const SCX: u16 = 0xFF43;
-pub const LY: u16 = 0xFF44;
-pub const LYC: u16 = 0xFF45;
-pub const DMA: u16 = 0xFF46;
-pub const BGP: u16 = 0xFF47;
-pub const OBP0: u16 = 0xFF48;
-pub const OBP1: u16 = 0xFF49;
-pub const WY: u16 = 0xFF4A;
-pub const WX: u16 = 0xFF4B;
 pub const KEY1: u16 = 0xFF4D;
 pub const VBK: u16 = 0xFF4F;
 
@@ -88,23 +76,16 @@ impl Mmu {
 
         self.intf = 0xE1;
 
-        self.wb(LCDC, 0x91);
-        self.wb(STAT, 0x81); // CGB: ?
-        self.wb(SCY, 0x00);
-        self.wb(SCX, 0x00);
-        self.wb(LY, 0x91); // CGB: ?
-        self.wb(LYC, 0x00);
-        self.wb(DMA, 0xFF); // CGB: 00
-        self.wb(BGP, 0xFC);
-        self.wb(WY, 0x00);
-        self.wb(WX, 0x00);
         self.wb(KEY1, 0xFF);
+
         self.wb(VBK, 0xFF);
+
         self.wb(HDMA1, 0xFF);
         self.wb(HDMA2, 0xFF);
         self.wb(HDMA3, 0xFF);
         self.wb(HDMA4, 0xFF);
         self.wb(HDMA5, 0xFF);
+
         self.wb(RP, 0xFF);
         self.wb(BCPS, 0xFF); // CGB: ?
         self.wb(BCPD, 0xFF); // CGB: ?
@@ -161,16 +142,17 @@ impl Mmu {
             0xA000..=0xBFFF => self.cart.ram_b(address), // cart read ram
             0xC000..=0xCFFF => self.wram[(address as usize) - 0xC000], // wram bank 0
             0xD000..=0xDFFF => self.wram[(address as usize) - 0xC000], // wram bank 1, CGB: 1-7 switchable
-            0xE000..=0xFDFF => self.wram[(address as usize) - 0xE000], // mirror of 0xC000..0xDDFF, prohibited to use, (used)
-            0xFE00..=0xFE9F => todo!(), // oam (sprite attribute table)
-            0xFEA0..=0xFEFF => 0,       // unusable, prohibited to use
-            0xFF00 => self.joypad.b(address), // io registers begin
+            0xE000..=0xFDFF => self.wram[(address as usize) - 0xE000], // mirror of 0xC000..0xDDFF, prohibited to use, (used in some cases)
+            0xFE00..=0xFE9F => self.ppu.b(address), // oam (sprite attribute table)
+            0xFEA0..=0xFEFF => 0,                   // unusable, prohibited to use
+            0xFF00 => self.joypad.b(address),       // io registers begin
             0xFF01..=0xFF02 => self.serial.b(address),
             0xFF04..=0xFF07 => self.timer.b(address),
             0xFF0F => self.intf,
             0xFF10..=0xFF3F => self.apu.b(address),
+            0xFF40..=0xFF4F => self.ppu.b(address),
+            0xFF03..=0xFFFE => self.hram[(address as usize) - 0xFF00], // hram that is not special
             0xFFFF => self.inte,
-            0xFF03..=0xFFFF => self.hram[(address as usize) - 0xFF00], // hram that is not special
         }
     }
 
@@ -186,15 +168,16 @@ impl Mmu {
             0xC000..=0xCFFF => self.wram[(address as usize) - 0xC000] = value, // wram bank 0
             0xD000..=0xDFFF => self.wram[(address as usize) - 0xC000] = value, // wram bank 1, CGB: 1-7 switchable
             0xE000..=0xFDFF => self.wram[(address as usize) - 0xE000] = value, // mirror of 0xC000..0xDDFF, prohibited to use, (used)
-            0xFE00..=0xFE9F => todo!(), // oam (sprite attribute table)
-            0xFEA0..=0xFEFF => (),      // unusable, prohibited to use
-            0xFF00 => self.joypad.wb(address, value), // io registers begin
+            0xFE00..=0xFE9F => self.ppu.wb(address, value), // oam (sprite attribute table)
+            0xFEA0..=0xFEFF => (),                          // unusable, prohibited to use
+            0xFF00 => self.joypad.wb(address, value),       // io registers begin
             0xFF01..=0xFF02 => self.serial.wb(address, value),
             0xFF04..=0xFF07 => self.timer.wb(address, value),
             0xFF0F => self.intf = value,
             0xFF10..=0xFF3F => self.apu.wb(address, value),
+            0xFF40..=0xFF4F => self.ppu.wb(address, value),
+            0xFF03..=0xFFFE => self.hram[(address as usize) - 0xFF00] = value, // hram that is not special
             0xFFFF => self.inte = value,
-            0xFF03..=0xFFFF => self.hram[(address as usize) - 0xFF00] = value, // hram that is not special
         }
     }
 
