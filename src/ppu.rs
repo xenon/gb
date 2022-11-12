@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{f32::consts::E, time::Duration};
 
 use num_enum::{IntoPrimitive, UnsafeFromPrimitive};
 
@@ -138,41 +138,42 @@ impl Ppu {
     pub fn step(&mut self, mut cycles: u32) -> (bool, bool) {
         let line_cycles: u32 = 456;
         let (mut intf_vblank, mut intf_lcdstat) = (false, false);
-
-        while cycles > 0 {
-            if cycles >= 80 {
-                self.internal_cycles += 80;
-                cycles -= 80;
-            } else {
-                self.internal_cycles += cycles;
-                cycles = 0;
-            }
-            if self.internal_cycles >= line_cycles {
-                self.m_ly = (self.m_ly + 1) % 154;
-                self.set_stat_flag(StatFlag::LycEqLy, self.m_lyc == self.m_ly);
-                self.internal_cycles -= line_cycles;
-                if self.m_ly == 144 {
-                    // Transition to VBlank
-                    intf_lcdstat |= self.switch_mode(Mode::VBlank);
-                    intf_vblank = true;
-                }
-            } else if self.m_ly < 144 {
-                if self.internal_cycles <= 80 {
-                    // Transition to InOAM
-                    if self.mode != Mode::InOAM {
-                        intf_lcdstat |= self.switch_mode(Mode::InOAM);
-                    }
-                } else if self.internal_cycles <= 168 && self.mode != Mode::HBlank {
-                    // Transition to TransferData
-                    if self.mode != Mode::TransferData {
-                        self.switch_mode(Mode::TransferData);
-                    }
-                    // Run FIFO (Output pixels or stall) (for now just drawing a whole line at once)
+        if self.get_lcdc_flag(LcdcFlag::LCDEnable) {
+            while cycles > 0 {
+                if cycles >= 80 {
+                    self.internal_cycles += 80;
+                    cycles -= 80;
                 } else {
-                    if self.mode != Mode::HBlank {
-                        intf_lcdstat |= self.switch_mode(Mode::HBlank);
-                        // The new line is finished
-                        self.draw_line();
+                    self.internal_cycles += cycles;
+                    cycles = 0;
+                }
+                if self.internal_cycles >= line_cycles {
+                    self.m_ly = (self.m_ly + 1) % 154;
+                    self.set_stat_flag(StatFlag::LycEqLy, self.m_lyc == self.m_ly);
+                    self.internal_cycles -= line_cycles;
+                    if self.m_ly == 144 {
+                        // Transition to VBlank
+                        intf_lcdstat |= self.switch_mode(Mode::VBlank);
+                        intf_vblank = true;
+                    }
+                } else if self.m_ly < 144 {
+                    if self.internal_cycles <= 80 {
+                        // Transition to InOAM
+                        if self.mode != Mode::InOAM {
+                            intf_lcdstat |= self.switch_mode(Mode::InOAM);
+                        }
+                    } else if self.internal_cycles <= 168 && self.mode != Mode::HBlank {
+                        // Transition to TransferData
+                        if self.mode != Mode::TransferData {
+                            self.switch_mode(Mode::TransferData);
+                        }
+                        // Run FIFO (Output pixels or stall) (for now just drawing a whole line at once)
+                    } else {
+                        if self.mode != Mode::HBlank {
+                            intf_lcdstat |= self.switch_mode(Mode::HBlank);
+                            // The new line is finished
+                            self.draw_line();
+                        }
                     }
                 }
             }
@@ -276,9 +277,17 @@ impl Ppu {
             0x8000..=0x9FFF => self.m_ram[address as usize - 0x8000] = value,
             0xFE00..=0xFE9F => self.m_oam[address as usize - 0xFE00] = value,
             LCDC => {
+                let enable_toggle = (self.m_lcdc & (LcdcFlag::LCDEnable as u8))
+                    ^ (value & (LcdcFlag::LCDEnable as u8))
+                    != 0;
                 // TODO: Implement LCDEnable == 0
                 // set all bits of lcdc
                 self.m_lcdc = value;
+                if enable_toggle && !self.get_lcdc_flag(LcdcFlag::LCDEnable) {
+                    self.m_ly = 0;
+                    self.internal_cycles = 0;
+                    self.mode = Mode::VBlank;
+                }
             }
             STAT => {
                 // TODO: Do I need to trigger the STAT interrupts here?

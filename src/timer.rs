@@ -74,7 +74,10 @@ impl Timer {
 
     pub fn wb(&mut self, address: u16, value: u8) {
         match address {
-            DIV => self.m_div = value,
+            DIV => {
+                self.m_div = 0x00;
+                self.div_count = 0;
+            }
             TIMA => self.m_tima = value,
             TMA => self.m_tma = value,
             TAC => {
