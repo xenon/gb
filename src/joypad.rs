@@ -75,7 +75,7 @@ impl Joypad {
         self.m_p1 = new_value;
     }
 
-    pub fn press(&mut self, button: Button) {
+    pub fn release(&mut self, button: Button) {
         match button {
             Button::Right => self.directions |= 0b0001,
             Button::Left => self.directions |= 0b0010,
@@ -89,7 +89,7 @@ impl Joypad {
         self.set_p1();
     }
 
-    pub fn release(&mut self, button: Button) {
+    pub fn press(&mut self, button: Button) {
         match button {
             Button::Right => self.directions &= !0b0001,
             Button::Left => self.directions &= !0b0010,

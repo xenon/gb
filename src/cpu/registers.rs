@@ -1,7 +1,7 @@
 use num_enum::UnsafeFromPrimitive;
 
 pub struct Registers {
-    r: [u8; 10], // a, f, b, c, d, e, h, l, (sp), (pc)
+    r: [u8; 10], // a, f, b, c, d, e, h, l, sp
     pub pc: u16,
 }
 
@@ -11,7 +11,7 @@ impl Default for Registers {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, UnsafeFromPrimitive)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, UnsafeFromPrimitive)]
 #[repr(u32)]
 pub enum Reg8 {
     A = 0,
@@ -30,7 +30,7 @@ impl Reg8 {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, UnsafeFromPrimitive)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, UnsafeFromPrimitive)]
 #[repr(u32)]
 pub enum Reg16 {
     AF = 0,
@@ -112,7 +112,7 @@ impl Registers {
 
     pub fn set_16(&mut self, r: Reg16, value: u16) {
         let base = 2 * (r as usize);
-        let mask = if base == 0 { 0xF0 } else { 0xFF };
+        let mask = if base == 0 { 0x00F0 } else { 0x00FF };
         self.r[base] = (value >> 8) as u8;
         self.r[base + 1] = (value & mask) as u8;
     }

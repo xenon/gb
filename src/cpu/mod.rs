@@ -1,4 +1,8 @@
-use crate::{cart::Cartridge, mmu::Mmu, ppu::Ppu};
+use crate::{
+    cart::Cartridge,
+    mmu::Mmu,
+    ppu::{Ppu, LCD_HEIGHT, LCD_WIDTH},
+};
 
 use self::{
     info::{CYCLES, CYCLES_CB},
@@ -19,6 +23,7 @@ pub struct Cpu {
     ime: bool,
     pending_ei: bool,
     pending_di: bool,
+    halt_bug: bool,
 }
 
 impl Cpu {
@@ -45,6 +50,7 @@ impl Cpu {
             ime: false,
             pending_ei: false,
             pending_di: false,
+            halt_bug: false,
         }
     }
 
@@ -56,6 +62,7 @@ impl Cpu {
         self.ime = false;
         self.pending_ei = false;
         self.pending_di = false;
+        self.halt_bug = false;
     }
 
     pub fn toggle_interrupt(&mut self) {
@@ -74,7 +81,7 @@ impl Cpu {
             self.halt = false;
             if self.ime {
                 self.ime = false;
-                let interrupt = self.m.get_interrupt();
+                let interrupt = self.m.next_interrupt();
                 self.m.disable_interrupt(interrupt);
                 self.push(self.r.pc);
                 self.r.pc = self.m.get_interrupt_handler(interrupt);
@@ -98,6 +105,10 @@ impl Cpu {
         (pc, instr, cycles)
     }
 
+    pub fn get_buf(&mut self) -> [[u8; LCD_WIDTH]; LCD_HEIGHT] {
+        self.m.ppu.buf.clone()
+    }
+
     fn alu_arg_get(&self, offset: u32) -> u8 {
         match offset {
             0..=5 => self.r.get_8(Reg8::get(offset + 2)),
@@ -118,7 +129,11 @@ impl Cpu {
 
     fn step_pc_b(&mut self) -> u8 {
         let next = self.m.b(self.r.pc);
-        self.r.pc = self.r.pc.wrapping_add(1);
+        if self.halt_bug {
+            self.halt_bug = false;
+        } else {
+            self.r.pc = self.r.pc.wrapping_add(1);
+        }
         next
     }
 
@@ -296,49 +311,53 @@ impl Cpu {
                 self.alu_arg_set(dest, res);
             }
             0x76 => {
-                self.halt = true; // halt
+                if self.ime == false && self.m.has_pending_interrupts() {
+                    self.halt_bug = true;
+                } else {
+                    self.halt = true; // halt
+                }
             }
             0x80..=0x87 => {
                 let offset = instr as u32 - 0x80; // add
                 let n = self.alu_arg_get(offset);
                 let res = self.r.add(n);
-                self.alu_arg_set(offset, res);
+                self.r.set_8(Reg8::A, res);
             }
             0x88..=0x8F => {
                 let offset = instr as u32 - 0x88; // adc
                 let n = self.alu_arg_get(offset);
                 let res = self.r.adc(n);
-                self.alu_arg_set(offset, res);
+                self.r.set_8(Reg8::A, res);
             }
             0x90..=0x97 => {
                 let offset = instr as u32 - 0x90; // sub
                 let n = self.alu_arg_get(offset);
                 let res = self.r.sub(n);
-                self.alu_arg_set(offset, res);
+                self.r.set_8(Reg8::A, res);
             }
             0x98..=0x9F => {
                 let offset = instr as u32 - 0x98; // sbc
                 let n = self.alu_arg_get(offset);
                 let res = self.r.sbc(n);
-                self.alu_arg_set(offset, res);
+                self.r.set_8(Reg8::A, res);
             }
             0xA0..=0xA7 => {
                 let offset = instr as u32 - 0xA0; // and
                 let n = self.alu_arg_get(offset);
                 let res = self.r.and(n);
-                self.alu_arg_set(offset, res);
+                self.r.set_8(Reg8::A, res);
             }
             0xA8..=0xAF => {
                 let offset = instr as u32 - 0xA8; // xor
                 let n = self.alu_arg_get(offset);
                 let res = self.r.xor(n);
-                self.alu_arg_set(offset, res);
+                self.r.set_8(Reg8::A, res);
             }
             0xB0..=0xB7 => {
                 let offset = instr as u32 - 0xB0; // or
                 let n = self.alu_arg_get(offset);
                 let res = self.r.or(n);
-                self.alu_arg_set(offset, res);
+                self.r.set_8(Reg8::A, res);
             }
             0xB8..=0xBF => {
                 let offset = instr as u32 - 0xB8; // cp
@@ -402,7 +421,7 @@ impl Cpu {
                 }
             }
             0xC5 | 0xD5 | 0xE5 | 0xF5 => {
-                let src = if instr == 0xF1 {
+                let src = if instr == 0xF5 {
                     Reg16::AF
                 } else {
                     Reg16::get(((instr as u32 - 0xC0) / 16) + 1)

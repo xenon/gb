@@ -13,6 +13,8 @@ pub const INTF: u16 = 0xFF0F;
 pub const KEY1: u16 = 0xFF4D;
 pub const VBK: u16 = 0xFF4F;
 
+pub const DMA: u16 = 0xFF46;
+
 pub const HDMA1: u16 = 0xFF51;
 pub const HDMA2: u16 = 0xFF52;
 pub const HDMA3: u16 = 0xFF53;
@@ -42,7 +44,7 @@ pub struct Mmu {
 }
 
 #[allow(dead_code)] // Doesn't understand UnsafeFromPrimitive uses all the values
-#[derive(Copy, Clone, Eq, IntoPrimitive, PartialEq, UnsafeFromPrimitive)]
+#[derive(Copy, Clone, Debug, Eq, IntoPrimitive, PartialEq, UnsafeFromPrimitive)]
 #[repr(u8)]
 pub enum Interrupt {
     VBlank = 0,
@@ -76,9 +78,8 @@ impl Mmu {
 
         self.intf = 0xE1;
 
-        self.wb(KEY1, 0xFF);
-
-        self.wb(VBK, 0xFF);
+        //self.wb(KEY1, 0xFF);
+        //self.wb(VBK, 0xFF);
 
         self.wb(HDMA1, 0xFF);
         self.wb(HDMA2, 0xFF);
@@ -100,7 +101,7 @@ impl Mmu {
         (self.inte & self.intf) != 0
     }
 
-    pub fn get_interrupt(&self) -> Interrupt {
+    pub fn next_interrupt(&self) -> Interrupt {
         let pending = self.inte & self.intf;
         if pending & 0b00001 != 0 {
             Interrupt::VBlank
@@ -119,7 +120,7 @@ impl Mmu {
 
     pub fn disable_interrupt(&mut self, i: Interrupt) {
         let mask: u8 = 1 << <Interrupt as Into<u8>>::into(i);
-        self.inte &= !mask;
+        self.intf &= !mask;
     }
 
     pub fn get_interrupt_handler(&self, i: Interrupt) -> u16 {
@@ -132,6 +133,13 @@ impl Mmu {
         }
         if self.timer.step(cycles) {
             self.intf |= 0b00100;
+        }
+        let (intf_vblank, intf_lcdstat) = self.ppu.step(cycles);
+        if intf_vblank {
+            self.intf |= 0b00001;
+        }
+        if intf_lcdstat {
+            self.intf |= 0b00010;
         }
     }
 
@@ -148,16 +156,31 @@ impl Mmu {
             0xFF00 => self.joypad.b(address),       // io registers begin
             0xFF01..=0xFF02 => self.serial.b(address),
             0xFF04..=0xFF07 => self.timer.b(address),
-            0xFF0F => self.intf,
+            INTF => self.intf,
             0xFF10..=0xFF3F => self.apu.b(address),
-            0xFF40..=0xFF4F => self.ppu.b(address),
+            DMA => 0xFF, // KLUDGE: not sure what real hardware does in this case
+            0xFF40..=0xFF45 | 0xFF47..=0xFF4F => self.ppu.b(address),
             0xFF03..=0xFFFE => self.hram[(address as usize) - 0xFF00], // hram that is not special
-            0xFFFF => self.inte,
+            INTE => self.inte,
         }
     }
 
     pub fn w(&self, address: u16) -> u16 {
         (self.b(address + 1) as u16) << 8 | (self.b(address) as u16)
+    }
+
+    fn dma_transfer(&mut self, value: u8) {
+        // KLUDGE:
+        // Typically OAM transfer takes 160 cycles but the CPU can only access HRAM and usually just busy idles
+        // So effectively we can skip the cycle accuracy and memory restrictions and just copy the whole memory at once.
+        let src = (value as u16) << 8;
+        if src <= 0xDF00 {
+            for i in 0..=0x9F {
+                self.ppu.wb(0xFE00 + i, self.b(src + i));
+            }
+        } else {
+            unreachable!();
+        }
     }
 
     pub fn wb(&mut self, address: u16, value: u8) {
@@ -173,11 +196,12 @@ impl Mmu {
             0xFF00 => self.joypad.wb(address, value),       // io registers begin
             0xFF01..=0xFF02 => self.serial.wb(address, value),
             0xFF04..=0xFF07 => self.timer.wb(address, value),
-            0xFF0F => self.intf = value,
+            INTF => self.intf = value,
             0xFF10..=0xFF3F => self.apu.wb(address, value),
-            0xFF40..=0xFF4F => self.ppu.wb(address, value),
+            DMA => self.dma_transfer(value),
+            0xFF40..=0xFF45 | 0xFF47..=0xFF4F => self.ppu.wb(address, value),
             0xFF03..=0xFFFE => self.hram[(address as usize) - 0xFF00] = value, // hram that is not special
-            0xFFFF => self.inte = value,
+            INTE => self.inte = value,
         }
     }
 

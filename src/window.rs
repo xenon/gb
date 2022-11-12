@@ -48,7 +48,7 @@ fn relay_thread(
 
 pub fn launch_window(cpu: Cpu) {
     // Init system and thread
-    println!("{}", cpu.m.cart.info.title);
+    let title = cpu.m.cart.info.title.clone();
     let (sh, system_input, system_event) = system_thread(cpu);
     let mut system_handle = Some(sh);
 
@@ -58,7 +58,7 @@ pub fn launch_window(cpu: Cpu) {
     let window = {
         let size = LogicalSize::new((LCD_WIDTH * 3) as f64, (LCD_HEIGHT * 3) as f64);
         WindowBuilder::new()
-            .with_title("gb")
+            .with_title(format!("gb | {}", title))
             .with_inner_size(size)
             .with_min_inner_size(size)
             .build(&event_loop)
@@ -68,9 +68,10 @@ pub fn launch_window(cpu: Cpu) {
     let mut pixels = {
         let window_size = window.inner_size();
         let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
-        Pixels::new(LCD_WIDTH, LCD_HEIGHT, surface_texture).expect("Could not create Pixels struct")
+        Pixels::new(LCD_WIDTH as u32, LCD_HEIGHT as u32, surface_texture)
+            .expect("Could not create Pixels struct")
     };
-    pixels.resize_surface(LCD_WIDTH * 3, LCD_HEIGHT * 3);
+    pixels.resize_surface(LCD_WIDTH as u32 * 3, LCD_HEIGHT as u32 * 3);
 
     // Custom Events
     let exit_event = event_loop.create_proxy();
@@ -100,21 +101,31 @@ pub fn launch_window(cpu: Cpu) {
                 println!("Exiting!");
                 *control_flow = ControlFlow::Exit;
             }
+            Event::UserEvent(EventWrapper::SystemEvent(SystemEvent::Frame(buf))) => {
+                let frame = pixels.get_frame_mut();
+                for (i, pixel) in frame.chunks_exact_mut(4).enumerate() {
+                    let x = i % LCD_WIDTH as usize;
+                    let y = i / LCD_WIDTH as usize;
+
+                    let slice: [u8; 4] = match buf[y][x] {
+                        /*0 => [0xFF, 0xFF, 0xFF, 0xFF],
+                        1 => [0xCC, 0xCC, 0xCC, 0xFF],
+                        2 => [0x77, 0x77, 0x77, 0xFF],
+                        3 => [0x00, 0x00, 0x00, 0xFF],*/
+                        0 => [255, 239, 206, 0xFF],
+                        1 => [222, 148, 74, 0xFF],
+                        2 => [173, 41, 33, 0xFF],
+                        3 => [49, 24, 82, 0xFF],
+                        _ => unreachable!(),
+                    };
+
+                    pixel.copy_from_slice(&slice);
+                }
+                window.request_redraw();
+            }
 
             Event::RedrawRequested(_) => {
                 // draw frame
-                let frame = pixels.get_frame_mut();
-                for (i, pixel) in frame.chunks_exact_mut(4).enumerate() {
-                    let x = (i % LCD_WIDTH as usize) as i16;
-                    let y = (i / LCD_HEIGHT as usize) as i16;
-                    let slice = &[
-                        (x * y - x % 256) as u8,
-                        (x * y - y % 256) as u8,
-                        0xFF - (x * y - (x + y) % 256) as u8,
-                        0xFF,
-                    ];
-                    pixel.copy_from_slice(slice);
-                }
                 if pixels
                     .render()
                     .map_err(|e| eprintln!("pixels.render() failed: {}", e))
@@ -142,6 +153,11 @@ pub fn launch_window(cpu: Cpu) {
             // Pause emulation
             if input.key_pressed(VirtualKeyCode::P) {
                 system_input.send(SystemInput::TogglePause).unwrap();
+            }
+
+            // Reset emulation
+            if input.key_pressed(VirtualKeyCode::R) {
+                system_input.send(SystemInput::Reset).unwrap();
             }
 
             // Joypad

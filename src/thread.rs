@@ -7,12 +7,13 @@ use std::{
 use crate::{
     cpu::Cpu,
     joypad::Button,
-    ppu::{ONE_FRAME_CYCLES, ONE_FRAME_DURATION},
+    ppu::{LCD_HEIGHT, LCD_WIDTH, ONE_FRAME_CYCLES, ONE_FRAME_DURATION},
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SystemInput {
     Exit,
+    Reset,
     TogglePause,
     JoypadOn(Button),
     JoypadOff(Button),
@@ -21,7 +22,7 @@ pub enum SystemInput {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SystemEvent {
     ExitNow,
-    Frame,
+    Frame([[u8; LCD_WIDTH]; LCD_HEIGHT]),
     Serial,
 }
 
@@ -55,6 +56,9 @@ fn system_loop(mut cpu: Cpu, input: Receiver<SystemInput>, event: Sender<SystemE
                     let _ = event.send(SystemEvent::ExitNow); // Ok if the other thread doesn't care about this event
                     return;
                 }
+                SystemInput::Reset => {
+                    cpu.reset();
+                }
                 SystemInput::TogglePause => {
                     if paused {
                         start = Instant::now();
@@ -73,9 +77,11 @@ fn system_loop(mut cpu: Cpu, input: Receiver<SystemInput>, event: Sender<SystemE
             }
             cycles -= ONE_FRAME_CYCLES; // carry over the remaining cycles
 
+            let buf = cpu.get_buf();
+
             // Get next frame and send it
             event
-                .send(SystemEvent::Frame)
+                .send(SystemEvent::Frame(buf))
                 .expect("Failed to send the frame!");
 
             // Try to make emulation run at gb speed
