@@ -79,6 +79,7 @@ pub struct Ppu {
     pub buf: [[u8; LCD_WIDTH]; LCD_HEIGHT],
     internal_cycles: u32,
     mode: Mode,
+    blank_frame: bool,
 }
 
 impl Ppu {
@@ -101,6 +102,7 @@ impl Ppu {
             buf: [[0x00; LCD_WIDTH]; LCD_HEIGHT],
             internal_cycles: 0,
             mode: Mode::VBlank,
+            blank_frame: false,
         };
         p.reset();
         p
@@ -123,6 +125,7 @@ impl Ppu {
         self.buf = [[0x00; LCD_WIDTH]; LCD_HEIGHT];
         self.internal_cycles = 0;
         self.mode = Mode::VBlank;
+        self.blank_frame = false;
     }
 
     fn switch_mode(&mut self, mode: Mode) -> bool {
@@ -155,6 +158,7 @@ impl Ppu {
                         // Transition to VBlank
                         intf_lcdstat |= self.switch_mode(Mode::VBlank);
                         intf_vblank = true;
+                        self.blank_frame = false;
                     }
                 } else if self.m_ly < 144 {
                     if self.internal_cycles <= 80 {
@@ -183,8 +187,10 @@ impl Ppu {
 
     fn draw_line(&mut self) {
         self.buf[self.m_ly as usize] = [0x00; LCD_WIDTH];
-        self.render_bg_line();
-        self.render_obj_line();
+        if !self.blank_frame {
+            self.render_bg_line();
+            self.render_obj_line();
+        }
     }
 
     fn render_bg_line(&mut self) {
@@ -287,6 +293,7 @@ impl Ppu {
                     self.m_ly = 0;
                     self.internal_cycles = 0;
                     self.mode = Mode::VBlank;
+                    self.blank_frame = true;
                 }
             }
             STAT => {
