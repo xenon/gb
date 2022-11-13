@@ -1,4 +1,4 @@
-use std::{f32::consts::E, time::Duration};
+use std::time::Duration;
 
 use num_enum::{IntoPrimitive, UnsafeFromPrimitive};
 
@@ -28,6 +28,7 @@ pub const WX: u16 = 0xFF4B;
 const PPU_BANK_SIZE: usize = 0x2000;
 const PPU_OAM_SIZE: usize = 0xA0;
 
+#[allow(dead_code)]
 #[derive(Copy, Clone, Eq, IntoPrimitive, PartialEq)]
 #[repr(u8)]
 enum LcdcFlag {
@@ -41,6 +42,7 @@ enum LcdcFlag {
     LCDEnable = 0b10000000,
 }
 
+#[allow(dead_code)]
 #[derive(Copy, Clone, Eq, IntoPrimitive, PartialEq)]
 #[repr(u8)]
 enum StatFlag {
@@ -172,12 +174,10 @@ impl Ppu {
                             self.switch_mode(Mode::TransferData);
                         }
                         // Run FIFO (Output pixels or stall) (for now just drawing a whole line at once)
-                    } else {
-                        if self.mode != Mode::HBlank {
-                            intf_lcdstat |= self.switch_mode(Mode::HBlank);
-                            // The new line is finished
-                            self.draw_line();
-                        }
+                    } else if self.mode != Mode::HBlank {
+                        intf_lcdstat |= self.switch_mode(Mode::HBlank);
+                        // The new line is finished
+                        self.draw_line();
                     }
                 }
             }

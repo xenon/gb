@@ -1,30 +1,51 @@
 use std::{error::Error, fs::read, path::Path};
 
-use self::info::CartridgeInfo;
+use self::{
+    info::{CartridgeInfo, CartridgeInfoError},
+    mapper::Mapper,
+};
 
 pub mod info;
+mod mapper;
 
 // Eventually I'll need mapper information to go here...
 pub struct Cartridge {
-    rom: Vec<u8>,
+    mapper: Box<dyn Mapper>,
     pub info: CartridgeInfo,
 }
 
+pub enum CartridgeError {
+    FileError(Box<dyn Error>),
+    CartridgeInfoError(CartridgeInfoError),
+}
+
+impl std::fmt::Display for CartridgeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CartridgeError::FileError(e) => write!(f, "File Error: {}!", e),
+            CartridgeError::CartridgeInfoError(e) => write!(f, "Cartridge Error: {}", e),
+        }
+    }
+}
+
 impl Cartridge {
-    pub fn new_from_file(file: &Path) -> Result<Self, Box<dyn Error>> {
-        let bytes = read(file)?;
-        let info = CartridgeInfo::new_from_cartridge(&bytes)?;
-        Ok(Self { rom: bytes, info })
+    pub fn new_from_file(file: &Path) -> Result<Self, CartridgeError> {
+        let bytes = match read(file) {
+            Ok(b) => b,
+            Err(e) => return Err(CartridgeError::FileError(Box::new(e))),
+        };
+        let info = match CartridgeInfo::new_from_cartridge(&bytes) {
+            Ok(i) => i,
+            Err(e) => return Err(CartridgeError::CartridgeInfoError(e)),
+        };
+        let mapper = mapper::new(bytes, &info);
+        Ok(Self { mapper, info })
     }
 
     pub fn reset(&mut self) {}
 
     pub fn header_checksum(&self) -> bool {
-        let mut checksum: u8 = 0;
-        for index in 0x0134..0x014D {
-            checksum = checksum.wrapping_sub(self.rom[index]).wrapping_sub(1);
-        }
-        checksum == self.info.header_checksum
+        self.mapper.calculate_header_checksum() == self.info.header_checksum
     }
 
     pub fn global_checksum(&self) -> bool {
@@ -32,14 +53,18 @@ impl Cartridge {
     }
 
     pub fn rom_b(&self, address: u16) -> u8 {
-        self.rom[address as usize] // trivial rom for ROM only carts
+        self.mapper.rom_b(address)
     }
 
-    pub fn rom_wb(&self, _address: u16, _value: u8) {}
-
-    pub fn ram_b(&self, _address: u16) -> u8 {
-        0 // trivial ram for ROM only carts
+    pub fn rom_wb(&mut self, address: u16, value: u8) {
+        self.mapper.rom_wb(address, value)
     }
 
-    pub fn ram_wb(&self, _address: u16, _value: u8) {}
+    pub fn ram_b(&self, address: u16) -> u8 {
+        self.mapper.ram_b(address)
+    }
+
+    pub fn ram_wb(&mut self, address: u16, value: u8) {
+        self.mapper.ram_wb(address, value)
+    }
 }

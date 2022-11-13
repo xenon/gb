@@ -2,32 +2,45 @@ use std::{error::Error, fmt};
 
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+use super::mapper::MapperType;
+
 #[derive(Clone, Debug)]
-pub enum CartridgeError {
+pub enum CartridgeInfoError {
     InvalidCartridgeSize,
     InvalidRom,
     InvalidRam,
+    OldLicenseeCodeFail,
+    TitleStringFail,
+    CartTypeFail,
+    SGBFlagFail,
+    RegionFail,
 }
 
-impl std::fmt::Display for CartridgeError {
+impl std::fmt::Display for CartridgeInfoError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CartridgeError::InvalidCartridgeSize => {
+            CartridgeInfoError::InvalidCartridgeSize => {
                 write!(f, "Cartridge is too short, probably invalid!")
             }
-            CartridgeError::InvalidRom => write!(f, "Invalid Rom amount!"),
-            CartridgeError::InvalidRam => write!(f, "Invalid Ram amount!"),
+            CartridgeInfoError::InvalidRom => write!(f, "Invalid Rom amount!"),
+            CartridgeInfoError::InvalidRam => write!(f, "Invalid Ram amount!"),
+            CartridgeInfoError::OldLicenseeCodeFail => write!(f, "Old Licensee code invalid!"),
+            CartridgeInfoError::TitleStringFail => write!(f, "Title string invalid!"),
+            CartridgeInfoError::CartTypeFail => write!(f, "Cart type invalid!"),
+            CartridgeInfoError::SGBFlagFail => write!(f, "SGB flag invalid!"),
+            CartridgeInfoError::RegionFail => write!(f, "Region code invalid!"),
         }
     }
 }
 
-impl Error for CartridgeError {}
+impl Error for CartridgeInfoError {}
 
 pub struct CartridgeInfo {
     pub cart_type: CartType,
     pub title: String,
-    pub rom_size: u32,
-    pub ram_size: u32,
+    pub rom_size: usize,
+    pub ram_size: usize,
+    pub mapper: MapperType,
     pub battery: bool,
     pub ram: bool,
     pub rumble: bool,
@@ -43,9 +56,13 @@ pub struct CartridgeInfo {
 }
 
 impl CartridgeInfo {
-    pub fn new_from_cartridge(bytes: &Vec<u8>) -> Result<Self, Box<dyn Error>> {
+    pub fn new_from_cartridge(bytes: &Vec<u8>) -> Result<Self, CartridgeInfoError> {
         if bytes.len() > 0x14D {
-            let old_licensee_code = OldLicenseeCode::try_from(bytes[0x014B])?;
+            let old_licensee_code = match OldLicenseeCode::try_from(bytes[0x014B]) {
+                Ok(l) => l,
+                Err(_) => return Err(CartridgeInfoError::OldLicenseeCodeFail),
+            };
+
             let new_licensee_code = match old_licensee_code {
                 OldLicenseeCode::NewLicensee => {
                     match NewLicenseeCode::try_from(bytes[0x0145] as u16) {
@@ -58,23 +75,65 @@ impl CartridgeInfo {
                 }
                 _ => None,
             };
-            let title = std::str::from_utf8(&bytes[0x0134..0x0143]).map(|s| s.to_string())?;
+            let title = match std::str::from_utf8(&bytes[0x0134..0x0143]) {
+                Ok(s) => s.to_string(),
+                Err(_) => return Err(CartridgeInfoError::TitleStringFail),
+            };
 
-            let cart_type = CartType::try_from(bytes[0x0147])?;
+            let cart_type = match CartType::try_from(bytes[0x0147]) {
+                Ok(t) => t,
+                Err(_) => return Err(CartridgeInfoError::CartTypeFail),
+            };
             let cgb_flag = match CgbFlag::try_from(bytes[0x0143]) {
                 Ok(f) => f,
                 Err(_) => CgbFlag::Undefined,
             };
-            let sgb_flag = SgbFlag::try_from(bytes[0x0146])?;
+            let sgb_flag = match SgbFlag::try_from(bytes[0x0146]) {
+                Ok(l) => l,
+                Err(_) => return Err(CartridgeInfoError::SGBFlagFail),
+            };
 
-            let rom_size =
-                get_rom_size(bytes[0x0148]).ok_or_else(|| Box::new(CartridgeError::InvalidRom))?;
-            let ram_size =
-                get_ram_size(bytes[0x0149]).ok_or_else(|| Box::new(CartridgeError::InvalidRam))?;
+            let rom_size = match get_rom_size(bytes[0x0148]) {
+                Some(s) => s,
+                None => return Err(CartridgeInfoError::InvalidRom),
+            };
+            let ram_size = match get_ram_size(bytes[0x0149]) {
+                Some(s) => s,
+                None => return Err(CartridgeInfoError::InvalidRam),
+            };
 
-            let region = Region::try_from(bytes[0x014A])?;
+            let region = match Region::try_from(bytes[0x014A]) {
+                Ok(r) => r,
+                Err(_) => return Err(CartridgeInfoError::RegionFail),
+            };
             let version = bytes[0x014C];
             let header_checksum = bytes[0x014D];
+
+            let mapper = match cart_type {
+                CartType::Rom => MapperType::Rom,
+                CartType::Mbc1 | CartType::Mbc1Ram | CartType::Mbc1RamBat => MapperType::Mbc1,
+                CartType::Mbc2 | CartType::Mbc2Bat => MapperType::Mbc2,
+                CartType::Mmm01 | CartType::Mmm01Ram | CartType::Mmm01RamBat => MapperType::Mmm01,
+                CartType::Mbc3BatTim
+                | CartType::Mbc3RamBatTim
+                | CartType::Mbc3
+                | CartType::Mbc3Ram
+                | CartType::Mbc3RamBat => MapperType::Mbc3,
+                CartType::Mbc5
+                | CartType::Mbc5Ram
+                | CartType::Mbc5RamBat
+                | CartType::Mbc5Rum
+                | CartType::Mbc5RamRum
+                | CartType::Mbc5RamBatRum => MapperType::Mbc5,
+                CartType::Mbc6 => MapperType::Mbc6,
+                CartType::Mbc7RamBatRumSen => MapperType::Mbc7,
+                CartType::Huc3 => MapperType::Huc3,
+                CartType::Huc1RamBat => MapperType::Huc1,
+                _ => {
+                    eprintln!("This type of cart is not supported");
+                    unimplemented!()
+                }
+            };
 
             let battery = matches!(
                 cart_type,
@@ -124,6 +183,7 @@ impl CartridgeInfo {
                 title,
                 rom_size,
                 ram_size,
+                mapper,
                 battery,
                 ram,
                 rumble,
@@ -138,7 +198,7 @@ impl CartridgeInfo {
                 new_licensee_code,
             })
         } else {
-            Err(Box::new(CartridgeError::InvalidCartridgeSize))
+            Err(CartridgeInfoError::InvalidCartridgeSize)
         }
     }
 }
@@ -455,7 +515,7 @@ impl fmt::Display for NewLicenseeCode {
     }
 }
 
-fn get_rom_size(value: u8) -> Option<u32> {
+fn get_rom_size(value: u8) -> Option<usize> {
     /* No known cartridges or roms use these values but they are in the docs:
         0x52 => 1179648,
         0x53 => 1310720,
@@ -468,7 +528,7 @@ fn get_rom_size(value: u8) -> Option<u32> {
     }
 }
 
-fn get_ram_size(value: u8) -> Option<u32> {
+fn get_ram_size(value: u8) -> Option<usize> {
     match value {
         0x0 => Some(0),
         //0x1 => 2048, // Unused by any licensed cartridge

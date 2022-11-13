@@ -29,7 +29,7 @@ pub struct Cpu {
 impl Cpu {
     pub(crate) fn print(&self) -> String {
         format!(
-            "\ta: {:#04x}\n\tf: {:#04x}\n\tb: {:#04x}\n\tc: {:#04x}\n\td: {:#04x}\n\te: {:#04x}\n\th: {:#04x}\n\tl: {:#04x}\n\tsp: {:#06x}",
+            "a: {:#04x}\tf: {:#04x}\tb: {:#04x}\tc: {:#04x}\td: {:#04x}\te: {:#04x}\th: {:#04x}\tl: {:#04x}\tsp: {:#06x}",
             self.r.get_8(Reg8::A),
             self.r.get_8(Reg8::F),
             self.r.get_8(Reg8::B),
@@ -41,6 +41,11 @@ impl Cpu {
             self.r.get_16(Reg16::SP),
         )
     }
+
+    pub(crate) fn next_step(&self) -> (u16, u8) {
+        (self.r.pc, self.m.b(self.r.pc))
+    }
+
     pub fn new(cart: Cartridge, ppu: Ppu) -> Self {
         let m = Mmu::new(cart, ppu);
         Self {
@@ -106,7 +111,7 @@ impl Cpu {
     }
 
     pub fn get_buf(&mut self) -> [[u8; LCD_WIDTH]; LCD_HEIGHT] {
-        self.m.ppu.buf.clone()
+        self.m.ppu.buf
     }
 
     fn alu_arg_get(&self, offset: u32) -> u8 {
@@ -311,7 +316,7 @@ impl Cpu {
                 self.alu_arg_set(dest, res);
             }
             0x76 => {
-                if self.ime == false && self.m.has_pending_interrupts() {
+                if !self.ime && self.m.has_pending_interrupts() {
                     self.halt_bug = true;
                 } else {
                     self.halt = true; // halt
@@ -511,7 +516,8 @@ impl Cpu {
                 self.pending_ei = true;
             }
             0xD3 | 0xDB | 0xDD | 0xE3 | 0xE4 | 0xEB | 0xEC | 0xED | 0xF4 | 0xFC | 0xFD => {
-                unimplemented!("Unused instructions")
+                eprintln!("Invalid opcode: {:#04x}", instr);
+                unreachable!();
             }
         };
         cycles

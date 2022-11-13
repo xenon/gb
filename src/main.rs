@@ -4,6 +4,7 @@ use cart::Cartridge;
 use clap::Parser;
 use cpu::Cpu;
 use ppu::Ppu;
+use trace::run_trace;
 use window::launch_window;
 
 pub mod apu;
@@ -15,11 +16,13 @@ pub mod ppu;
 pub mod serial;
 pub mod thread;
 pub mod timer;
+mod trace;
 pub mod window;
 
 #[derive(Parser)]
 enum Command {
     Emu(EmuArgs),
+    Trace(TraceArgs),
     CartInfo(CartridgeArgs),
 }
 
@@ -27,6 +30,16 @@ enum Command {
 struct EmuArgs {
     #[clap(short, long, value_hint = clap::ValueHint::FilePath)]
     cart: std::path::PathBuf,
+}
+
+#[derive(Parser)]
+struct TraceArgs {
+    #[clap(short, long, value_hint = clap::ValueHint::FilePath)]
+    cart: std::path::PathBuf,
+    #[clap(long)]
+    cycles: Option<u64>,
+    #[clap(long)]
+    verbose: bool,
 }
 
 #[derive(Parser)]
@@ -41,6 +54,16 @@ fn main() {
             Ok(cart) => {
                 let cpu = Cpu::new(cart, Ppu::new());
                 launch_window(cpu);
+            }
+            Err(e) => {
+                eprintln!("Error reading cartridge:");
+                eprintln!("{}", e);
+            }
+        },
+        Command::Trace(args) => match Cartridge::new_from_file(&args.cart) {
+            Ok(cart) => {
+                let cpu = Cpu::new(cart, Ppu::new());
+                run_trace(cpu, args.cycles, args.verbose);
             }
             Err(e) => {
                 eprintln!("Error reading cartridge:");
