@@ -86,6 +86,7 @@ impl Timer {
             DIV => {
                 self.m_div = 0x00;
                 self.div_count = 0;
+                self.tima_count = 0; // In the hardware div and tima are the same counter, so they are both reset here
             }
             TIMA => self.m_tima = value,
             TMA => self.m_tma = value,
