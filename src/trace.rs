@@ -3,13 +3,10 @@ use crate::cpu::Cpu;
 pub fn run_trace(mut cpu: Cpu, max_cycles: Option<u64>, verbose: bool) {
     let mut cycles: u64 = 0;
     loop {
-        match max_cycles {
-            Some(c) => {
-                if cycles >= c {
-                    break;
-                }
+        if let Some(c) = max_cycles {
+            if cycles >= c {
+                break;
             }
-            None => (),
         }
         let (pc, op, step_cycles) = cpu.step();
         if verbose {

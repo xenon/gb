@@ -1,8 +1,6 @@
-use num_enum::UnsafeFromPrimitive;
-
 use crate::cart::info::CartridgeInfo;
 
-use super::{Mapper, RAM_BANK_SIZE, ROM_BANK_SIZE};
+use super::{Mapper, ROM_BANK_SIZE};
 
 pub struct Mbc2 {
     rom: Vec<u8>,

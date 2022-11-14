@@ -262,12 +262,10 @@ impl Ppu {
                 } else {
                     0x9800
                 }
+            } else if self.get_lcdc_flag(LcdcFlag::BgTileMapArea) {
+                0x9C00
             } else {
-                if self.get_lcdc_flag(LcdcFlag::BgTileMapArea) {
-                    0x9C00
-                } else {
-                    0x9800
-                }
+                0x9800
             };
 
             let tilemap_addr = background_map_base + tile_x + (tile_y * 32);

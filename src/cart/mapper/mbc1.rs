@@ -4,6 +4,7 @@ use crate::cart::info::CartridgeInfo;
 
 use super::{Mapper, RAM_BANK_SIZE, ROM_BANK_SIZE};
 
+#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, UnsafeFromPrimitive)]
 #[repr(u8)]
 enum BankingMode {
