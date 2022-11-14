@@ -10,7 +10,6 @@ pub struct Timer {
     m_tac: u8,
     div_count: u32,
     tima_count: u32,
-    tma_count: u32,
     enable_tima: bool,
     tima_step: u32,
 }
@@ -24,7 +23,6 @@ impl Timer {
             m_tac: 0xF8,
             div_count: 0,
             tima_count: 0,
-            tma_count: 0,
             enable_tima: false,
             tima_step: 1024,
         }
@@ -37,29 +35,40 @@ impl Timer {
         self.m_tac = 0xF8;
         self.div_count = 0;
         self.tima_count = 0;
-        self.tma_count = 0;
         self.enable_tima = false;
         self.tima_step = 1024;
     }
 
     pub fn step(&mut self, cycles: u32) -> bool {
-        let mut request_interrupt = false;
-        // div timer
-        self.div_count += cycles;
-        self.m_div = self.m_div.wrapping_add((self.div_count / 256) as u8);
-        self.div_count %= 256;
+        self.step_div(cycles);
+        self.step_timer(cycles)
+    }
 
-        // tima timer
+    fn step_div(&mut self, cycles: u32) {
+        self.div_count += cycles;
+        let (div_div_256, div_mod_256) = (self.div_count / 256, self.div_count % 256);
+        self.div_count = div_mod_256;
+        self.m_div = self.m_div.wrapping_add(div_div_256 as u8);
+    }
+
+    fn step_timer(&mut self, cycles: u32) -> bool {
         if self.enable_tima {
             self.tima_count += cycles;
-            self.tma_count += self.tima_count / self.tima_step;
-            self.tima_count %= self.tima_step;
-            if self.tma_count >= 0x100 {
-                self.tma_count = (self.m_tma as u32) + (self.tma_count % 0x100);
-                request_interrupt = true;
+            let (tima_div_step, tima_mod_step) = (
+                self.tima_count / self.tima_step,
+                self.tima_count % self.tima_step,
+            );
+            self.tima_count = tima_mod_step;
+
+            if (self.m_tima as u32 + tima_div_step) >= 0x100 {
+                self.m_tima = self.m_tma + (self.m_tima as u32 + tima_div_step - 0xFF) as u8;
+
+                return true;
+            } else if tima_div_step >= 1 {
+                self.m_tima += tima_div_step as u8;
             }
         }
-        request_interrupt
+        return false;
     }
 
     pub fn b(&self, address: u16) -> u8 {
@@ -90,6 +99,8 @@ impl Timer {
                     3 => 256,
                     _ => unreachable!(),
                 };
+                self.m_tima = self.m_tma;
+                //self.tima_count = 0;
             }
             _ => unreachable!(),
         }
