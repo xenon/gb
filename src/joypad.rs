@@ -35,7 +35,7 @@ pub enum Button {
 impl Joypad {
     pub fn new() -> Self {
         Self {
-            m_p1: 0b11001111,
+            m_p1: 0b11111111,
             directions: 0b11101111,
             actions: 0b11011111,
             read_type: ReadType::None,
@@ -44,9 +44,9 @@ impl Joypad {
     }
 
     pub fn reset(&mut self) {
-        self.m_p1 = 0b11001111;
-        self.directions = 0b00101111;
-        self.actions = 0b00011111;
+        self.m_p1 = 0b11111111;
+        self.directions = 0b11101111;
+        self.actions = 0b11011111;
         self.read_type = ReadType::None;
         self.interrupt_request = false;
     }

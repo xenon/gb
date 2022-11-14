@@ -1,9 +1,13 @@
-use self::{mbc1::Mbc1, rom::Rom};
+use self::{mbc1::Mbc1, mbc2::Mbc2, rom::Rom};
 
 use super::info::CartridgeInfo;
 
 mod mbc1;
+mod mbc2;
 mod rom;
+
+const ROM_BANK_SIZE: usize = 0x4000;
+const RAM_BANK_SIZE: usize = 0x2000;
 
 pub enum MapperType {
     Rom,
@@ -38,7 +42,7 @@ pub fn new(bytes: Vec<u8>, info: &CartridgeInfo) -> Box<dyn Mapper> {
     match info.mapper {
         MapperType::Rom => Box::new(Rom::new(bytes)),
         MapperType::Mbc1 => Box::new(Mbc1::new(bytes, info)),
-        MapperType::Mbc2 => todo!(),
+        MapperType::Mbc2 => Box::new(Mbc2::new(bytes, info)),
         MapperType::Mmm01 => todo!(),
         MapperType::Mbc3 => todo!(),
         MapperType::Mbc5 => todo!(),

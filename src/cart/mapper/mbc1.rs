@@ -2,7 +2,7 @@ use num_enum::UnsafeFromPrimitive;
 
 use crate::cart::info::CartridgeInfo;
 
-use super::Mapper;
+use super::{Mapper, RAM_BANK_SIZE, ROM_BANK_SIZE};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, UnsafeFromPrimitive)]
 #[repr(u8)]
@@ -14,22 +14,20 @@ pub struct Mbc1 {
     rom: Vec<u8>,
     ram: Vec<u8>,
     ram_enable: bool,
-    bank: usize,
+    bank: u8,
     mode: BankingMode,
     cached_rom_bank: usize,
     cached_ram_bank: usize,
 }
 
 impl Mbc1 {
-    pub fn new(rom: Vec<u8>, info: &CartridgeInfo) -> Mbc1 {
+    pub fn new(rom: Vec<u8>, info: &CartridgeInfo) -> Self {
         // Check if RAM size is invalid and if so set to default
         let ram_size = match info.ram_size {
             0 => 32768,
             n => n,
         };
-        //let rom_size = info.rom_size * 8;
-        //rom.resize_with(rom_size, || 0x00);
-        Mbc1 {
+        Self {
             rom,
             ram: vec![0x00; ram_size],
             ram_enable: false,
@@ -45,18 +43,24 @@ impl Mbc1 {
             BankingMode::Simple => (self.bank & 0b1111111, 0),
             BankingMode::Advanced => (self.bank & 0b0011111, (self.bank & 0b1100000) >> 5),
         };
-        self.cached_rom_bank = rom_bank;
-        self.cached_ram_bank = ram_bank;
+        self.cached_rom_bank = rom_bank as usize;
+        self.cached_ram_bank = ram_bank as usize;
     }
 }
 
 impl Mapper for Mbc1 {
-    fn reset(&mut self) {}
+    fn reset(&mut self) {
+        self.ram.iter_mut().for_each(|v| *v = 0x00);
+        self.ram_enable = false;
+        self.bank = 1;
+        self.mode = BankingMode::Simple;
+        self.recalculate_banks();
+    }
     fn rom_b(&self, address: u16) -> u8 {
         match address {
             0x0000..=0x3FFF => self.rom[address as usize],
             0x4000..=0x7FFF => {
-                let index = (address as usize - 0x4000) + (self.cached_rom_bank * 0x4000);
+                let index = (address as usize - 0x4000) + (self.cached_rom_bank * ROM_BANK_SIZE);
                 self.rom[index]
             }
             _ => unreachable!(),
@@ -68,13 +72,13 @@ impl Mapper for Mbc1 {
             0x2000..=0x3FFF => {
                 let bank = match value & 0b11111 {
                     0 => 1,
-                    b => b as usize,
+                    b => b,
                 };
                 self.bank = (self.bank & 0b01100000) | bank;
                 self.recalculate_banks();
             }
             0x4000..=0x5FFF => {
-                self.bank = (self.bank & 0b10011111) | (((value & 0b11) << 5) as usize);
+                self.bank = (self.bank & 0b10011111) | ((value & 0b11) << 5);
                 self.recalculate_banks();
             }
             0x6000..=0x7FFF => {
@@ -86,7 +90,7 @@ impl Mapper for Mbc1 {
     }
     fn ram_b(&self, address: u16) -> u8 {
         if self.ram_enable {
-            let index = (address as usize - 0xA000) + (self.cached_ram_bank * 0x2000);
+            let index = (address as usize - 0xA000) + (self.cached_ram_bank * RAM_BANK_SIZE);
             self.ram[index]
         } else {
             0xFF
@@ -94,7 +98,7 @@ impl Mapper for Mbc1 {
     }
     fn ram_wb(&mut self, address: u16, value: u8) {
         if self.ram_enable {
-            let index = (address as usize - 0xA000) + (self.cached_ram_bank * 0x2000);
+            let index = (address as usize - 0xA000) + (self.cached_ram_bank * RAM_BANK_SIZE);
             self.ram[index] = value;
         }
     }

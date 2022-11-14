@@ -61,10 +61,10 @@ impl Apu {
     pub fn reset(&mut self) {
         self.m_squares = [
             [0x80, 0xBF, 0xF3, 0xFF, 0xBF],
-            [0x00, 0x3F, 0x00, 0xFF, 0xBF],
+            [0xFF, 0x3F, 0x00, 0xFF, 0xBF],
         ];
         self.m_wave = [0x7F, 0xFF, 0x9F, 0xFF, 0xBF];
-        self.m_noise = [0x00, 0xFF, 0x00, 0x00, 0xBF];
+        self.m_noise = [0xFF, 0xFF, 0x00, 0x00, 0xBF];
         self.m_control = [0x77, 0xF3, 0xF1];
     }
 
@@ -75,10 +75,11 @@ impl Apu {
             }
             NR30..=NR34 => self.m_wave[(address - NR30) as usize],
             NR40..=NR44 => self.m_noise[(address - NR40) as usize],
+            NR50..=NR52 => self.m_control[(address - NR50) as usize],
             WAVE_BEGIN..=WAVE_END => self.m_wave_table[(address - WAVE_BEGIN) as usize],
             _ => {
                 if (NR10..=WAVE_END).contains(&address) {
-                    0x00 // unused values
+                    0xFF // unused values
                 } else {
                     unreachable!()
                 }
@@ -94,6 +95,7 @@ impl Apu {
             }
             NR30..=NR34 => self.m_wave[(address - NR30) as usize] = value,
             NR40..=NR44 => self.m_noise[(address - NR40) as usize] = value,
+            NR50..=NR52 => self.m_control[(address - NR50) as usize] = value,
             WAVE_BEGIN..=WAVE_END => self.m_wave_table[(address - WAVE_BEGIN) as usize] = value,
             _ => {
                 if !(NR10..=WAVE_END).contains(&address) {

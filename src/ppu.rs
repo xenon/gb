@@ -25,6 +25,14 @@ pub const OBP1: u16 = 0xFF49;
 pub const WY: u16 = 0xFF4A;
 pub const WX: u16 = 0xFF4B;
 
+pub const UNKNOWN_1: u16 = 0xFF4E; // UNKNOWN
+pub const VBK: u16 = 0xFF4F; // CGB
+
+pub const BCPS: u16 = 0xFF68; // CGB
+pub const BCPD: u16 = 0xFF69; // CGB
+pub const OCPS: u16 = 0xFF6A; // CGB
+pub const OCPD: u16 = 0xFF6B; // CGB
+
 pub const OAM: u16 = 0xFFE0;
 
 const PPU_BANK_SIZE: usize = 0x2000;
@@ -243,7 +251,7 @@ impl Ppu {
             let full_x = if window_visible {
                 (x as u8) - window_x
             } else {
-                self.m_scx.wrapping_add(x as u8) // x-position in 256x256 full screen
+                (x as u8).wrapping_add(self.m_scx) // x-position in 256x256 full screen
             };
             let tile_x = (full_x / 8) as u16;
             let tile_offset_x = full_x % 8;
@@ -414,6 +422,12 @@ impl Ppu {
             OBP1 => self.m_obp1,
             WY => self.m_wy,
             WX => self.m_wx,
+            UNKNOWN_1 => 0xFF,
+            VBK => 0xFE,
+            BCPS => 0xC8,
+            BCPD => 0xFF,
+            OCPS => 0xD0,
+            OCPD => 0xFF,
             _ => unreachable!(),
         }
     }
@@ -452,6 +466,7 @@ impl Ppu {
             OBP1 => self.m_obp1 = value,
             WY => self.m_wy = value,
             WX => self.m_wx = value,
+            UNKNOWN_1 | VBK | BCPS | BCPD | OCPS | OCPD => (),
             _ => unreachable!(),
         }
     }

@@ -29,6 +29,11 @@ pub const OCPS: u16 = 0xFF6A;
 pub const OCPD: u16 = 0xFF6B;
 pub const SVBK: u16 = 0xFF70;
 
+pub const UNUSED_1: u16 = 0xFF72; // UNUSED_X are CGB Registers, unused on DMG
+pub const UNUSED_2: u16 = 0xFF73;
+pub const UNUSED_3: u16 = 0xFF74; // DMG: locked to 0xFF
+pub const UNUSED_4: u16 = 0xFF75;
+
 pub const INTE: u16 = 0xFFFF;
 
 pub struct Mmu {
@@ -65,7 +70,7 @@ impl Mmu {
             timer: Timer::new(),
             apu: Apu::new(),
             wram: [0; 2 * WRAM_BANK_SIZE],
-            hram: [0; HRAM_SIZE],
+            hram: [0xFF; HRAM_SIZE],
             intf: 0xE1,
             inte: 0x00,
         };
@@ -94,6 +99,15 @@ impl Mmu {
         self.wb(OCPS, 0xFF); // CGB: ?
         self.wb(OCPD, 0xFF); // CGB: ?
         self.wb(SVBK, 0xFF);
+
+        self.wb(0xFF03, 0xFF);
+        self.wb(UNUSED_1, 0x00); // CGB
+        self.wb(UNUSED_2, 0x00); // CGB
+        self.wb(UNUSED_3, 0xFF); // DMG: locked to 0xFF, CGB: 0x00
+        self.wb(UNUSED_4, 0x8F);
+
+        self.wb(0xFF76, 0x00);
+        self.wb(0xFF77, 0x00);
 
         self.inte = 0x00;
     }
@@ -161,7 +175,7 @@ impl Mmu {
             0xFF10..=0xFF3F => self.apu.b(address),
             DMA => 0xFF, // KLUDGE: not sure what real hardware does in this case
             KEY0 | KEY1 => self.hram[(address as usize) - 0xFF00],
-            0xFF40..=0xFF45 | 0xFF47..=0xFF4F => self.ppu.b(address),
+            0xFF40..=0xFF45 | 0xFF47..=0xFF4F | 0xFF68..=0xFF6B => self.ppu.b(address),
             0xFF03..=0xFFFE => self.hram[(address as usize) - 0xFF00], // hram that is not special
             INTE => self.inte,
         }
@@ -202,7 +216,7 @@ impl Mmu {
             0xFF10..=0xFF3F => self.apu.wb(address, value),
             DMA => self.dma_transfer(value),
             KEY0 | KEY1 => self.hram[(address as usize) - 0xFF00] = value,
-            0xFF40..=0xFF45 | 0xFF47..=0xFF4F => self.ppu.wb(address, value),
+            0xFF40..=0xFF45 | 0xFF47..=0xFF4F | 0xFF68..=0xFF6B => self.ppu.wb(address, value),
             0xFF03..=0xFFFE => self.hram[(address as usize) - 0xFF00] = value, // hram that is not special
             INTE => self.inte = value,
         }
