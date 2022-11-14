@@ -10,6 +10,7 @@ const HRAM_SIZE: usize = 0x100;
 
 pub const INTF: u16 = 0xFF0F;
 
+pub const KEY0: u16 = 0xFF4C;
 pub const KEY1: u16 = 0xFF4D;
 pub const VBK: u16 = 0xFF4F;
 
@@ -159,6 +160,7 @@ impl Mmu {
             INTF => self.intf,
             0xFF10..=0xFF3F => self.apu.b(address),
             DMA => 0xFF, // KLUDGE: not sure what real hardware does in this case
+            KEY0 | KEY1 => self.hram[(address as usize) - 0xFF00],
             0xFF40..=0xFF45 | 0xFF47..=0xFF4F => self.ppu.b(address),
             0xFF03..=0xFFFE => self.hram[(address as usize) - 0xFF00], // hram that is not special
             INTE => self.inte,
@@ -199,6 +201,7 @@ impl Mmu {
             INTF => self.intf = value,
             0xFF10..=0xFF3F => self.apu.wb(address, value),
             DMA => self.dma_transfer(value),
+            KEY0 | KEY1 => self.hram[(address as usize) - 0xFF00] = value,
             0xFF40..=0xFF45 | 0xFF47..=0xFF4F => self.ppu.wb(address, value),
             0xFF03..=0xFFFE => self.hram[(address as usize) - 0xFF00] = value, // hram that is not special
             INTE => self.inte = value,

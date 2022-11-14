@@ -531,7 +531,7 @@ fn get_rom_size(value: u8) -> Option<usize> {
 fn get_ram_size(value: u8) -> Option<usize> {
     match value {
         0x0 => Some(0),
-        //0x1 => 2048, // Unused by any licensed cartridge
+        //0x1 => Some(2048),   // Unused by any licensed cartridge
         0x2 => Some(8192),   // 1 bank
         0x3 => Some(32768),  // 4 x 8 bank
         0x4 => Some(131072), // 16 x 8 bank

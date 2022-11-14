@@ -20,6 +20,7 @@ pub struct Cpu {
     r: Registers,
     pub m: Mmu,
     halt: bool,
+    stop: bool,
     ime: bool,
     pending_ei: bool,
     pending_di: bool,
@@ -52,6 +53,7 @@ impl Cpu {
             r: Registers::new(),
             m,
             halt: false,
+            stop: false,
             ime: false,
             pending_ei: false,
             pending_di: false,
@@ -64,6 +66,7 @@ impl Cpu {
         self.m.reset();
 
         self.halt = false;
+        self.stop = false;
         self.ime = false;
         self.pending_ei = false;
         self.pending_di = false;
@@ -82,8 +85,9 @@ impl Cpu {
     }
 
     pub fn handle_interrupt(&mut self) -> bool {
-        if (self.ime || self.halt) && self.m.has_pending_interrupts() {
+        if (self.ime || self.halt || self.stop) && self.m.has_pending_interrupts() {
             self.halt = false;
+            self.stop = false;
             if self.ime {
                 self.ime = false;
                 let interrupt = self.m.next_interrupt();
@@ -162,7 +166,7 @@ impl Cpu {
         match instr {
             0x00 => { /* nop */ }
             0x10 => {
-                todo!(); // stop
+                self.stop = true;
             }
             0x01 | 0x11 | 0x21 | 0x31 => {
                 let dest = Reg16::get((instr as u32 / 16) + 1); // ld d16
@@ -246,7 +250,7 @@ impl Cpu {
                     if imm >= 0 {
                         self.r.pc = self.r.pc.wrapping_add(imm as u16);
                     } else {
-                        self.r.pc = self.r.pc.wrapping_sub(-imm as u16);
+                        self.r.pc = self.r.pc.wrapping_sub(imm.wrapping_neg() as u16);
                     }
                     cycles += 4;
                 }
