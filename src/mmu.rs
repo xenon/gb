@@ -171,13 +171,13 @@ impl Mmu {
             0xFF00 => self.joypad.b(address),       // io registers begin
             0xFF01..=0xFF02 => self.serial.b(address),
             0xFF04..=0xFF07 => self.timer.b(address),
-            INTF => self.intf,
+            INTF => self.intf | 0b11100000,
             0xFF10..=0xFF3F => self.apu.b(address),
             DMA => 0xFF, // KLUDGE: not sure what real hardware does in this case
             KEY0 | KEY1 => self.hram[(address as usize) - 0xFF00],
             0xFF40..=0xFF45 | 0xFF47..=0xFF4F | 0xFF68..=0xFF6B => self.ppu.b(address),
             0xFF03..=0xFFFE => self.hram[(address as usize) - 0xFF00], // hram that is not special
-            INTE => self.inte,
+            INTE => self.inte | 0b11100000,
         }
     }
 

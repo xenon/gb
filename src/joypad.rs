@@ -35,9 +35,9 @@ pub enum Button {
 impl Joypad {
     pub fn new() -> Self {
         Self {
-            m_p1: 0b11111111,
-            directions: 0b11101111,
-            actions: 0b11011111,
+            m_p1: 0b11001111, // CGB: highest 2 bits are set
+            directions: 0b00101111,
+            actions: 0b00011111,
             read_type: ReadType::None,
             interrupt_request: false,
         }
