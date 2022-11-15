@@ -166,6 +166,7 @@ impl Ppu {
 
     fn switch_mode(&mut self, mode: Mode) -> bool {
         self.mode = mode;
+        self.m_stat = (self.m_stat & 0b01111000) | self.mode as u8;
         match mode {
             Mode::HBlank => self.get_stat_flag(StatFlag::Mode0HblankInt),
             Mode::VBlank => self.get_stat_flag(StatFlag::Mode1VBlankInt),
@@ -435,13 +436,10 @@ impl Ppu {
             0x8000..=0x9FFF => self.m_ram[address as usize - 0x8000] = value,
             0xFE00..=0xFE9F => self.m_oam[address as usize - 0xFE00] = value,
             LCDC => {
-                let enable_toggle = (self.m_lcdc & (LcdcFlag::LCDEnable as u8))
-                    ^ (value & (LcdcFlag::LCDEnable as u8))
-                    != 0;
-                // TODO: Implement LCDEnable == 0
-                // set all bits of lcdc
+                let was_enabled = self.get_lcdc_flag(LcdcFlag::LCDEnable);
                 self.m_lcdc = value;
-                if enable_toggle && !self.get_lcdc_flag(LcdcFlag::LCDEnable) {
+                let is_enabled = self.get_lcdc_flag(LcdcFlag::LCDEnable);
+                if was_enabled && !is_enabled {
                     self.m_ly = 0;
                     self.internal_cycles = 0;
                     self.mode = Mode::VBlank;
@@ -449,8 +447,8 @@ impl Ppu {
                 }
             }
             STAT => {
-                // TODO: Do I need to trigger the STAT interrupts here?
-                self.m_stat = value & 0b01111000;
+                self.m_stat = (value & 0b01111000) | self.mode as u8;
+                self.set_stat_flag(StatFlag::LycEqLy, self.m_lyc == self.m_ly);
             }
             SCY => self.m_scy = value,
             SCX => self.m_scx = value,

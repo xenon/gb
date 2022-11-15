@@ -212,13 +212,13 @@ impl Mmu {
             0xFF00 => self.joypad.wb(address, value),       // io registers begin
             0xFF01..=0xFF02 => self.serial.wb(address, value),
             0xFF04..=0xFF07 => self.timer.wb(address, value),
-            INTF => self.intf = value,
+            INTF => self.intf = value & 0b00011111,
             0xFF10..=0xFF3F => self.apu.wb(address, value),
             DMA => self.dma_transfer(value),
             KEY0 | KEY1 => self.hram[(address as usize) - 0xFF00] = value,
             0xFF40..=0xFF45 | 0xFF47..=0xFF4F | 0xFF68..=0xFF6B => self.ppu.wb(address, value),
             0xFF03..=0xFFFE => self.hram[(address as usize) - 0xFF00] = value, // hram that is not special
-            INTE => self.inte = value,
+            INTE => self.inte = value & 0b00011111,
         }
     }
 
