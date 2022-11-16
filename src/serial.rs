@@ -25,7 +25,7 @@ pub struct Serial {
 impl Serial {
     pub fn new() -> Self {
         Self {
-            m_data: 0x00,
+            m_data: 0xFF,
             m_control: 0b01111110,
             in_transfer: false,
             internal_timer: 0,
@@ -33,7 +33,7 @@ impl Serial {
     }
 
     pub fn reset(&mut self) {
-        self.m_data = 0x00;
+        self.m_data = 0xFF;
         self.m_control = 0b01111110;
         self.in_transfer = false;
         self.internal_timer = 0;
@@ -72,7 +72,15 @@ impl Serial {
 
     pub fn wb(&mut self, address: u16, value: u8) {
         match address {
-            SB => self.m_data = value,
+            SB => {
+                self.m_data = value;
+                /* Print the sent value:
+                match char::try_from(value) {
+                    Ok(c) => print!("{}", c),
+                    Err(_) => print!("{:#04x}", value),
+                }
+                */
+            }
             SC => {
                 if control_flag(value, TransferFlag::Start) {
                     self.in_transfer = true;
