@@ -80,6 +80,9 @@ impl Mmu {
 
     pub fn reset(&mut self) {
         self.cart.reset();
+        self.joypad.reset();
+        self.serial.reset();
+        self.timer.reset();
         self.ppu.reset();
 
         self.intf = 0xE1;
@@ -145,6 +148,9 @@ impl Mmu {
     pub fn step(&mut self, cycles: u32) {
         if self.joypad.step() {
             self.intf |= 0b10000;
+        }
+        if self.serial.step(cycles) {
+            self.intf |= 0b01000;
         }
         if self.timer.step(cycles) {
             self.intf |= 0b00100;

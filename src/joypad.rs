@@ -62,7 +62,7 @@ impl Joypad {
 
     fn set_p1(&mut self) {
         let new_value = match self.read_type {
-            ReadType::None => 0b001111,
+            ReadType::None => 0b11001111,
             ReadType::Actions => self.actions,
             ReadType::Directions => self.directions,
             ReadType::Both => self.actions | self.directions,

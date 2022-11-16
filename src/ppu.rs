@@ -67,7 +67,7 @@ enum StatFlag {
 #[allow(dead_code)]
 #[derive(Copy, Clone, Eq, IntoPrimitive, PartialEq)]
 #[repr(u8)]
-enum ObjAttribute {
+enum Attribute {
     Palette = 0b00000111,       // CGB
     VRamBank = 0b00001000,      // CGB
     PaletteNumber = 0b00010000, // No-CGB
@@ -76,7 +76,7 @@ enum ObjAttribute {
     BGandWindowOverObj = 0b10000000,
 }
 
-fn get_obj_attribute(data: u8, attribute: ObjAttribute) -> bool {
+fn get_attribute(data: u8, attribute: Attribute) -> bool {
     data & (attribute as u8) != 0
 }
 
@@ -88,6 +88,8 @@ enum Mode {
     InOAM = 0b10,
     TransferData = 0b11,
 }
+
+const LINE_CYCLES: u32 = 456;
 
 pub struct Ppu {
     m_ram: [u8; PPU_BANK_SIZE], // tile data, tile maps, CGB: 2 x PPU_BANK_SIZE for
@@ -176,7 +178,6 @@ impl Ppu {
     }
 
     pub fn step(&mut self, mut cycles: u32) -> (bool, bool) {
-        let line_cycles: u32 = 456;
         let (mut intf_vblank, mut intf_lcdstat) = (false, false);
         if self.get_lcdc_flag(LcdcFlag::LCDEnable) {
             while cycles > 0 {
@@ -187,10 +188,10 @@ impl Ppu {
                     self.internal_cycles += cycles;
                     cycles = 0;
                 }
-                if self.internal_cycles >= line_cycles {
+                if self.internal_cycles >= LINE_CYCLES {
                     self.m_ly = (self.m_ly + 1) % 154;
                     self.set_stat_flag(StatFlag::LycEqLy, self.m_lyc == self.m_ly);
-                    self.internal_cycles -= line_cycles;
+                    self.internal_cycles -= LINE_CYCLES;
                     if self.m_ly == 144 {
                         intf_lcdstat |= self.switch_mode(Mode::VBlank);
                         intf_vblank = true;
@@ -338,7 +339,7 @@ impl Ppu {
                 continue;
             }
 
-            let tile_offset_y = if get_obj_attribute(tile_attributes, ObjAttribute::YFlip) {
+            let tile_offset_y = if get_attribute(tile_attributes, Attribute::YFlip) {
                 (obj_height - 1 - (self.m_ly - y)) as u16
             } else {
                 (self.m_ly - y) as u16
@@ -349,7 +350,7 @@ impl Ppu {
                 self.m_ram[(tile_addr + tile_offset_y * 2 + 1) as usize - 0x8000],
             ];
 
-            let palette = if get_obj_attribute(tile_attributes, ObjAttribute::PaletteNumber) {
+            let palette = if get_attribute(tile_attributes, Attribute::PaletteNumber) {
                 self.m_obp1
             } else {
                 self.m_obp0
@@ -360,14 +361,14 @@ impl Ppu {
                 if x_pixel >= LCD_WIDTH {
                     continue;
                 }
-                let tile_offset_x: u8 = if get_obj_attribute(tile_attributes, ObjAttribute::XFlip) {
+                let tile_offset_x: u8 = if get_attribute(tile_attributes, Attribute::XFlip) {
                     7 - rel_x
                 } else {
                     rel_x
                 };
 
                 if self.palette_index[x_pixel] != 0x00
-                    && get_obj_attribute(tile_attributes, ObjAttribute::BGandWindowOverObj)
+                    && get_attribute(tile_attributes, Attribute::BGandWindowOverObj)
                 {
                     continue;
                 }
