@@ -78,11 +78,12 @@ impl Serial {
                 match char::try_from(value) {
                     Ok(c) => print!("{}", c),
                     Err(_) => print!("{:#04x}", value),
-                }
-                */
+                }*/
             }
             SC => {
-                if control_flag(value, TransferFlag::Start) {
+                if control_flag(value, TransferFlag::Start)
+                    && control_flag(value, TransferFlag::ShiftClock)
+                {
                     self.in_transfer = true;
                 } else {
                     self.in_transfer = false;
