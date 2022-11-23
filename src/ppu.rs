@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{cmp::Ordering, time::Duration};
 
 use num_enum::{IntoPrimitive, UnsafeFromPrimitive};
 
@@ -90,6 +90,7 @@ enum Mode {
 }
 
 const LINE_CYCLES: u32 = 456;
+const MAX_SPRITES_PER_LINE: usize = 10;
 
 pub struct Ppu {
     m_ram: [u8; PPU_BANK_SIZE], // tile data, tile maps, CGB: 2 x PPU_BANK_SIZE for
@@ -324,10 +325,11 @@ impl Ppu {
         if !self.get_lcdc_flag(LcdcFlag::ObjEnable) {
             return;
         }
-
-        let mut sprite_count = 0;
         let tall_objects = self.get_lcdc_flag(LcdcFlag::ObjSize);
         let obj_height = if tall_objects { 16 } else { 8 };
+
+        let mut sprite_count = 0;
+        let mut sprite_buf = [(0, 0, 0, 0); MAX_SPRITES_PER_LINE];
         for obj_num in 0..40 {
             let obj_index = obj_num * 4;
             let (y, x, tile_index, tile_attributes) = (
@@ -337,22 +339,24 @@ impl Ppu {
                 self.m_oam[obj_index + 3],
             );
             let y_end = y.wrapping_add(obj_height);
-            let x_end = x.wrapping_add(7);
 
             // Object does not intersect ly in Y
             if !(y..y_end).contains(&self.m_ly) {
                 continue;
             }
             // Only render 10 sprites, does not check X coordinate
-
-            if sprite_count < 10 {
-                sprite_count += 1;
-            } else {
+            sprite_buf[sprite_count] = (y, x, tile_index, tile_attributes);
+            sprite_count += 1;
+            if sprite_count == MAX_SPRITES_PER_LINE {
                 break;
             }
+        }
 
-            // Is the object on screen?
+        sprite_buf[..sprite_count].sort_unstable_by(render_sort);
 
+        // Is the object on screen?
+        for &(y, x, tile_index, tile_attributes) in &sprite_buf[..sprite_count] {
+            let x_end = x.wrapping_add(7);
             if !(0..LCD_WIDTH).contains(&(x as usize))
                 && !(0..LCD_WIDTH).contains(&(x_end as usize))
             {
@@ -495,5 +499,13 @@ impl Ppu {
             _ => unreachable!(),
         }
         false
+    }
+}
+
+fn render_sort(lhs: &(u8, u8, u8, u8), rhs: &(u8, u8, u8, u8)) -> Ordering {
+    if lhs.0 == rhs.0 {
+        lhs.2.cmp(&rhs.2)
+    } else {
+        lhs.0.cmp(&rhs.0)
     }
 }
