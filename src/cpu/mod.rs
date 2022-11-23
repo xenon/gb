@@ -102,7 +102,6 @@ impl Cpu {
 
     pub fn step(&mut self) -> (u16, u8, u32) {
         self.toggle_interrupt();
-        self.handle_interrupt();
         let pc = self.r.pc;
         let instr = self.m.b(self.r.pc);
         let cycles = if self.handle_interrupt() || self.halt {

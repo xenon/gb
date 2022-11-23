@@ -177,6 +177,17 @@ impl Ppu {
         }
     }
 
+    fn update_stat_ly(&mut self) -> bool {
+        let eq = self.m_lyc == self.m_ly;
+        self.set_stat_flag(StatFlag::LycEqLy, eq);
+        eq && self.get_stat_flag(StatFlag::LycEqLyInt)
+    }
+
+    fn write_ly(&mut self, new_ly: u8) -> bool {
+        self.m_ly = new_ly;
+        self.update_stat_ly()
+    }
+
     pub fn step(&mut self, mut cycles: u32) -> (bool, bool) {
         let (mut intf_vblank, mut intf_lcdstat) = (false, false);
         if self.get_lcdc_flag(LcdcFlag::LCDEnable) {
@@ -189,8 +200,7 @@ impl Ppu {
                     cycles = 0;
                 }
                 if self.internal_cycles >= LINE_CYCLES {
-                    self.m_ly = (self.m_ly + 1) % 154;
-                    self.set_stat_flag(StatFlag::LycEqLy, self.m_lyc == self.m_ly);
+                    intf_lcdstat |= self.write_ly((self.m_ly + 1) % 154);
                     self.internal_cycles -= LINE_CYCLES;
                     if self.m_ly == 144 {
                         intf_lcdstat |= self.switch_mode(Mode::VBlank);
@@ -229,7 +239,7 @@ impl Ppu {
     }
 
     fn render_bg_line(&mut self) {
-        if !self.get_lcdc_flag(LcdcFlag::BgWindowEnable) {
+        if !self.get_lcdc_flag(LcdcFlag::BgWindowEnable) || self.m_ly as usize >= LCD_HEIGHT {
             return;
         }
 
@@ -295,13 +305,10 @@ impl Ppu {
     }
 
     fn render_obj_line(&mut self) {
-        if !self.get_lcdc_flag(LcdcFlag::ObjEnable) {
+        if !self.get_lcdc_flag(LcdcFlag::ObjEnable) || self.m_ly as usize >= LCD_HEIGHT {
             return;
         }
 
-        if self.m_ly as usize >= LCD_HEIGHT {
-            return;
-        }
         let mut sprite_count = 0;
         let obj_height = if self.get_lcdc_flag(LcdcFlag::ObjSize) {
             16
@@ -432,7 +439,7 @@ impl Ppu {
         }
     }
 
-    pub fn wb(&mut self, address: u16, value: u8) {
+    pub fn wb(&mut self, address: u16, value: u8) -> bool {
         match address {
             0x8000..=0x9FFF => self.m_ram[address as usize - 0x8000] = value,
             0xFE00..=0xFE9F => self.m_oam[address as usize - 0xFE00] = value,
@@ -449,14 +456,14 @@ impl Ppu {
             }
             STAT => {
                 self.m_stat = (value & 0b01111000) | self.mode as u8;
-                self.set_stat_flag(StatFlag::LycEqLy, self.m_lyc == self.m_ly);
+                return self.update_stat_ly();
             }
             SCY => self.m_scy = value,
             SCX => self.m_scx = value,
             LY => (),
             LYC => {
                 self.m_lyc = value;
-                self.set_stat_flag(StatFlag::LycEqLy, self.m_lyc == self.m_ly);
+                return self.update_stat_ly();
             }
             BGP => self.m_bgp = value,
             OBP0 => self.m_obp0 = value,
@@ -466,5 +473,6 @@ impl Ppu {
             UNKNOWN_1 | VBK | BCPS | BCPD | OCPS | OCPD => (),
             _ => unreachable!(),
         }
+        false
     }
 }

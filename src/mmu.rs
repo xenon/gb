@@ -208,21 +208,29 @@ impl Mmu {
     pub fn wb(&mut self, address: u16, value: u8) {
         match address {
             0x0000..=0x7FFF => self.cart.rom_wb(address, value), // cart read rom
-            0x8000..=0x9FFF => self.ppu.wb(address, value),      // ppu read ram
+            0x8000..=0x9FFF => {
+                self.ppu.wb(address, value);
+            } // ppu read ram
             0xA000..=0xBFFF => self.cart.ram_wb(address, value), // cart read ram
             0xC000..=0xCFFF => self.wram[(address as usize) - 0xC000] = value, // wram bank 0
             0xD000..=0xDFFF => self.wram[(address as usize) - 0xC000] = value, // wram bank 1, CGB: 1-7 switchable
             0xE000..=0xFDFF => self.wram[(address as usize) - 0xE000] = value, // mirror of 0xC000..0xDDFF, prohibited to use, (used)
-            0xFE00..=0xFE9F => self.ppu.wb(address, value), // oam (sprite attribute table)
-            0xFEA0..=0xFEFF => (),                          // unusable, prohibited to use
-            0xFF00 => self.joypad.wb(address, value),       // io registers begin
+            0xFE00..=0xFE9F => {
+                self.ppu.wb(address, value);
+            } // oam (sprite attribute table)
+            0xFEA0..=0xFEFF => (), // unusable, prohibited to use
+            0xFF00 => self.joypad.wb(address, value), // io registers begin
             0xFF01..=0xFF02 => self.serial.wb(address, value),
             0xFF04..=0xFF07 => self.timer.wb(address, value),
             INTF => self.intf = value & 0b00011111,
             0xFF10..=0xFF3F => self.apu.wb(address, value),
             DMA => self.dma_transfer(value),
             KEY0 | KEY1 => self.hram[(address as usize) - 0xFF00] = value,
-            0xFF40..=0xFF45 | 0xFF47..=0xFF4F | 0xFF68..=0xFF6B => self.ppu.wb(address, value),
+            0xFF40..=0xFF45 | 0xFF47..=0xFF4F | 0xFF68..=0xFF6B => {
+                if self.ppu.wb(address, value) {
+                    self.intf |= 0b00010;
+                }
+            }
             0xFF03..=0xFFFE => self.hram[(address as usize) - 0xFF00] = value, // hram that is not special
             INTE => self.inte = value & 0b00011111,
         }
