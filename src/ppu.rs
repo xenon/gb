@@ -110,6 +110,7 @@ pub struct Ppu {
     pub buf: [[u8; LCD_WIDTH]; LCD_HEIGHT],
     internal_cycles: u32,
     mode: Mode,
+    window_counter: Option<u8>,
     palette_index: [u8; LCD_WIDTH],
     blank_frame: bool,
     enable_background: bool,
@@ -136,6 +137,7 @@ impl Ppu {
             buf: [[0x00; LCD_WIDTH]; LCD_HEIGHT],
             internal_cycles: 0,
             mode: Mode::VBlank,
+            window_counter: None,
             palette_index: [0x00; LCD_WIDTH],
             blank_frame: false,
             enable_background: true,
@@ -162,11 +164,12 @@ impl Ppu {
         self.buf = [[0x00; LCD_WIDTH]; LCD_HEIGHT];
         self.internal_cycles = 0;
         self.mode = Mode::VBlank;
+        self.window_counter = None;
         self.palette_index = [0x00; LCD_WIDTH];
         self.blank_frame = false;
     }
 
-    fn switch_mode(&mut self, mode: Mode) -> bool {
+    fn stat_switch_mode(&mut self, mode: Mode) -> bool {
         self.mode = mode;
         self.m_stat = (self.m_stat & 0b01111000) | self.mode as u8;
         match mode {
@@ -200,24 +203,31 @@ impl Ppu {
                     cycles = 0;
                 }
                 if self.internal_cycles >= LINE_CYCLES {
-                    intf_lcdstat |= self.write_ly((self.m_ly + 1) % 154);
                     self.internal_cycles -= LINE_CYCLES;
+                    intf_lcdstat |= self.write_ly((self.m_ly + 1) % 154);
                     if self.m_ly == 144 {
-                        intf_lcdstat |= self.switch_mode(Mode::VBlank);
+                        intf_lcdstat |= self.stat_switch_mode(Mode::VBlank);
                         intf_vblank = true;
+                        self.window_counter = None;
                         self.blank_frame = false;
                     }
                 } else if self.m_ly < 144 {
                     if self.internal_cycles <= 80 {
                         if self.mode != Mode::InOAM {
-                            intf_lcdstat |= self.switch_mode(Mode::InOAM);
+                            intf_lcdstat |= self.stat_switch_mode(Mode::InOAM);
                         }
                     } else if self.internal_cycles <= 168 && self.mode != Mode::HBlank {
                         if self.mode != Mode::TransferData {
-                            self.switch_mode(Mode::TransferData);
+                            self.stat_switch_mode(Mode::TransferData);
+                            if self.m_ly == self.m_wy
+                                && self.window_counter.is_none()
+                                && self.get_lcdc_flag(LcdcFlag::WindowEnable)
+                            {
+                                self.window_counter = Some(0);
+                            }
                         }
                     } else if self.mode != Mode::HBlank {
-                        intf_lcdstat |= self.switch_mode(Mode::HBlank);
+                        intf_lcdstat |= self.stat_switch_mode(Mode::HBlank);
                         self.draw_line();
                     }
                 }
@@ -238,52 +248,58 @@ impl Ppu {
         }
     }
 
+    fn bg_map_base(&self, window: bool) -> u16 {
+        if window {
+            if self.get_lcdc_flag(LcdcFlag::WindowTileArea) {
+                0x9C00
+            } else {
+                0x9800
+            }
+        } else if self.get_lcdc_flag(LcdcFlag::BgTileMapArea) {
+            0x9C00
+        } else {
+            0x9800
+        }
+    }
+
     fn render_bg_line(&mut self) {
-        if !self.get_lcdc_flag(LcdcFlag::BgWindowEnable) || self.m_ly as usize >= LCD_HEIGHT {
+        // Behaviour of BgWindowEnable changes with CGB
+        if !self.get_lcdc_flag(LcdcFlag::BgWindowEnable) {
             return;
         }
 
-        let render_window = self.get_lcdc_flag(LcdcFlag::WindowEnable)
-            && (self.m_wy <= self.m_ly || self.m_wy == 166);
+        let render_window = self.get_lcdc_flag(LcdcFlag::WindowEnable) && self.m_wx <= 166;
         let window_x = self.m_wx.wrapping_sub(7);
 
-        let full_y = if render_window {
-            self.m_ly.wrapping_sub(self.m_wy)
+        let window_y = if render_window && self.window_counter.is_some() {
+            let window_line = self.window_counter.as_mut().unwrap();
+            let res = *window_line;
+            *window_line += 1;
+            Some(res)
         } else {
-            self.m_scy.wrapping_add(self.m_ly) // y-position in 256x256 full screen
+            None
         };
-        let tile_y = (full_y / 8) as u16;
-        let tile_offset_y = (full_y % 8) as u16;
+        let background_y = self.m_scy.wrapping_add(self.m_ly);
 
         let tiledata_unsigned = self.get_lcdc_flag(LcdcFlag::BgWindowTileDataArea);
         let tiledata_base = if tiledata_unsigned { 0x8000 } else { 0x8800 };
 
         for x in 0..LCD_WIDTH {
-            let window_visible = render_window && (x as u8) >= window_x;
-            let full_x = if window_visible {
-                (x as u8) - window_x
+            let window_visible = render_window && (x as u8) >= window_x && window_y.is_some();
+            let (full_x, full_y) = if window_visible {
+                ((x as u8) - window_x, window_y.unwrap())
             } else {
-                (x as u8).wrapping_add(self.m_scx) // x-position in 256x256 full screen
+                ((x as u8).wrapping_add(self.m_scx), background_y)
             };
-            let tile_x = (full_x / 8) as u16;
-            let tile_offset_x = full_x % 8;
+            let (tile_x, tile_offset_x) = ((full_x / 8) as u16, full_x % 8);
+            let (tile_y, tile_offset_y) = ((full_y / 8) as u16, (full_y % 8) as u16);
 
-            let background_map_base: u16 = if window_visible {
-                if self.get_lcdc_flag(LcdcFlag::WindowTileArea) {
-                    0x9C00
-                } else {
-                    0x9800
-                }
-            } else if self.get_lcdc_flag(LcdcFlag::BgTileMapArea) {
-                0x9C00
-            } else {
-                0x9800
-            };
+            let background_map_base: u16 = self.bg_map_base(window_visible);
 
             let tilemap_addr = background_map_base + tile_x + (tile_y * 32);
             let tile_index = self.m_ram[tilemap_addr as usize - 0x8000];
             let tile_offset = if tiledata_unsigned {
-                tile_index as i16 as u16
+                tile_index as u16
             } else {
                 ((tile_index as i8) as i16 + 128) as u16
             } * 16;
@@ -305,16 +321,13 @@ impl Ppu {
     }
 
     fn render_obj_line(&mut self) {
-        if !self.get_lcdc_flag(LcdcFlag::ObjEnable) || self.m_ly as usize >= LCD_HEIGHT {
+        if !self.get_lcdc_flag(LcdcFlag::ObjEnable) {
             return;
         }
 
         let mut sprite_count = 0;
-        let obj_height = if self.get_lcdc_flag(LcdcFlag::ObjSize) {
-            16
-        } else {
-            8
-        };
+        let tall_objects = self.get_lcdc_flag(LcdcFlag::ObjSize);
+        let obj_height = if tall_objects { 16 } else { 8 };
         for obj_num in 0..40 {
             let obj_index = obj_num * 4;
             let (y, x, tile_index, tile_attributes) = (
@@ -351,7 +364,13 @@ impl Ppu {
             } else {
                 (self.m_ly - y) as u16
             };
-            let tile_addr = 0x8000 + (tile_index as u16) * 16;
+            let tile_addr = 0x8000
+                + (if tall_objects {
+                    tile_index & 0b11111110
+                } else {
+                    tile_index
+                } as u16)
+                    * 16;
             let tile_y_data = [
                 self.m_ram[(tile_addr + tile_offset_y * 2) as usize - 0x8000],
                 self.m_ram[(tile_addr + tile_offset_y * 2 + 1) as usize - 0x8000],
@@ -452,6 +471,8 @@ impl Ppu {
                     self.internal_cycles = 0;
                     self.mode = Mode::VBlank;
                     self.blank_frame = true;
+                    self.window_counter = None;
+                    return self.update_stat_ly();
                 }
             }
             STAT => {
