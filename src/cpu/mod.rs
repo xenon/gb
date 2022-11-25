@@ -217,10 +217,12 @@ impl Cpu {
             }
             0x07 => {
                 let res = self.r.rlc(self.r.get_8(Reg8::A)); // rlc a
+                self.r.set_flag(Flag::Z, false);
                 self.r.set_8(Reg8::A, res);
             }
             0x17 => {
                 let res = self.r.rl(self.r.get_8(Reg8::A)); // rl a
+                self.r.set_flag(Flag::Z, false);
                 self.r.set_8(Reg8::A, res);
             }
             0x27 => {
@@ -300,10 +302,12 @@ impl Cpu {
             }
             0x0F => {
                 let res = self.r.rrc(self.r.get_8(Reg8::A)); // rrc a
+                self.r.set_flag(Flag::Z, false);
                 self.r.set_8(Reg8::A, res);
             }
             0x1F => {
                 let res = self.r.rr(self.r.get_8(Reg8::A)); // rr a
+                self.r.set_flag(Flag::Z, false);
                 self.r.set_8(Reg8::A, res);
             }
             0x2F => {
