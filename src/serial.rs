@@ -5,6 +5,7 @@ pub const SC: u16 = 0xFF02;
 
 pub const SERIAL_CYCLES: u32 = HZ / 1024; // 1024KB/s transfer
 
+#[allow(dead_code)]
 enum TransferFlag {
     ShiftClock = 0b00000001, // 0=external, 1=internal
     ClockSpeed = 0b00000010, // CGB

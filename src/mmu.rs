@@ -1,6 +1,8 @@
 use num_enum::{IntoPrimitive, UnsafeFromPrimitive};
 
-use crate::{apu::Apu, cart::Cartridge, joypad::Joypad, ppu::Ppu, serial::Serial, timer::Timer};
+use crate::{
+    apu::Apu, bios::Bios, cart::Cartridge, joypad::Joypad, ppu::Ppu, serial::Serial, timer::Timer,
+};
 
 // Sizes
 const WRAM_BANK_SIZE: usize = 0x1000;
@@ -15,6 +17,8 @@ pub const KEY1: u16 = 0xFF4D;
 pub const VBK: u16 = 0xFF4F;
 
 pub const DMA: u16 = 0xFF46;
+
+pub const BANK: u16 = 0xFF50;
 
 pub const HDMA1: u16 = 0xFF51;
 pub const HDMA2: u16 = 0xFF52;
@@ -37,16 +41,19 @@ pub const UNUSED_4: u16 = 0xFF75;
 pub const INTE: u16 = 0xFFFF;
 
 pub struct Mmu {
+    pub apu: Apu,
+    pub bios: Option<Bios>,
     pub cart: Cartridge,
-    pub ppu: Ppu,
     pub joypad: Joypad,
+    pub ppu: Ppu,
     pub serial: Serial,
     pub timer: Timer,
-    pub apu: Apu,
-    wram: [u8; 2 * WRAM_BANK_SIZE], // CGB: 32768 bytes = 8 * WRAM_BANK_SIZE
-    hram: [u8; HRAM_SIZE],
-    intf: u8,
-    inte: u8,
+    m_wram: [u8; 2 * WRAM_BANK_SIZE], // CGB: 32768 bytes = 8 * WRAM_BANK_SIZE
+    m_hram: [u8; HRAM_SIZE],
+    m_intf: u8,
+    m_inte: u8,
+    bios_mapped: bool,
+    pub enable_bios: bool,
 }
 
 #[allow(dead_code)] // Doesn't understand UnsafeFromPrimitive uses all the values
@@ -61,18 +68,22 @@ pub enum Interrupt {
 }
 
 impl Mmu {
-    pub fn new(cart: Cartridge, ppu: Ppu) -> Self {
+    pub fn new(bios: Option<Bios>, cart: Cartridge) -> Self {
+        let use_bios = bios.is_some();
         let mut mmu = Mmu {
+            apu: Apu::new(),
+            bios,
             cart,
-            ppu,
             joypad: Joypad::new(),
+            ppu: Ppu::new(),
             serial: Serial::new(),
             timer: Timer::new(),
-            apu: Apu::new(),
-            wram: [0; 2 * WRAM_BANK_SIZE],
-            hram: [0xFF; HRAM_SIZE],
-            intf: 0xE1,
-            inte: 0x00,
+            m_wram: [0; 2 * WRAM_BANK_SIZE],
+            m_hram: [0xFF; HRAM_SIZE],
+            m_intf: 0xE1,
+            m_inte: 0x00,
+            bios_mapped: use_bios,
+            enable_bios: use_bios,
         };
         mmu.reset();
         mmu
@@ -85,10 +96,12 @@ impl Mmu {
         self.timer.reset();
         self.ppu.reset();
 
-        self.intf = 0xE1;
+        self.m_intf = 0xE1;
 
         //self.wb(KEY1, 0xFF);
         //self.wb(VBK, 0xFF);
+
+        self.bios_mapped = self.bios.is_some();
 
         self.wb(HDMA1, 0xFF);
         self.wb(HDMA2, 0xFF);
@@ -112,15 +125,15 @@ impl Mmu {
         self.wb(0xFF76, 0x00);
         self.wb(0xFF77, 0x00);
 
-        self.inte = 0x00;
+        self.m_inte = 0x00;
     }
 
     pub fn has_pending_interrupts(&self) -> bool {
-        (self.inte & self.intf) != 0
+        (self.m_inte & self.m_intf) != 0
     }
 
     pub fn next_interrupt(&self) -> Interrupt {
-        let pending = self.inte & self.intf;
+        let pending = self.m_inte & self.m_intf;
         if pending & 0b00001 != 0 {
             Interrupt::VBlank
         } else if pending & 0b00010 != 0 {
@@ -138,7 +151,7 @@ impl Mmu {
 
     pub fn disable_interrupt(&mut self, i: Interrupt) {
         let mask: u8 = 1 << <Interrupt as Into<u8>>::into(i);
-        self.intf &= !mask;
+        self.m_intf &= !mask;
     }
 
     pub fn get_interrupt_handler(&self, i: Interrupt) -> u16 {
@@ -147,43 +160,46 @@ impl Mmu {
 
     pub fn step(&mut self, cycles: u32) {
         if self.joypad.step() {
-            self.intf |= 0b10000;
+            self.m_intf |= 0b10000;
         }
         if self.serial.step(cycles) {
-            self.intf |= 0b01000;
+            self.m_intf |= 0b01000;
         }
         if self.timer.step(cycles) {
-            self.intf |= 0b00100;
+            self.m_intf |= 0b00100;
         }
         let (intf_vblank, intf_lcdstat) = self.ppu.step(cycles);
         if intf_vblank {
-            self.intf |= 0b00001;
+            self.m_intf |= 0b00001;
         }
         if intf_lcdstat {
-            self.intf |= 0b00010;
+            self.m_intf |= 0b00010;
         }
     }
 
     pub fn b(&self, address: u16) -> u8 {
         match address {
+            0x0000..=0x00FF if self.enable_bios && self.bios_mapped => {
+                self.bios.as_ref().unwrap().b(address)
+            }
             0x0000..=0x7FFF => self.cart.rom_b(address), // cart read rom
             0x8000..=0x9FFF => self.ppu.b(address),      // ppu read ram
             0xA000..=0xBFFF => self.cart.ram_b(address), // cart read ram
-            0xC000..=0xCFFF => self.wram[(address as usize) - 0xC000], // wram bank 0
-            0xD000..=0xDFFF => self.wram[(address as usize) - 0xC000], // wram bank 1, CGB: 1-7 switchable
-            0xE000..=0xFDFF => self.wram[(address as usize) - 0xE000], // mirror of 0xC000..0xDDFF, prohibited to use, (used in some cases)
+            0xC000..=0xCFFF => self.m_wram[(address as usize) - 0xC000], // wram bank 0
+            0xD000..=0xDFFF => self.m_wram[(address as usize) - 0xC000], // wram bank 1, CGB: 1-7 switchable
+            0xE000..=0xFDFF => self.m_wram[(address as usize) - 0xE000], // mirror of 0xC000..0xDDFF, prohibited to use, (used in some cases)
             0xFE00..=0xFE9F => self.ppu.b(address), // oam (sprite attribute table)
             0xFEA0..=0xFEFF => 0,                   // unusable, prohibited to use
             0xFF00 => self.joypad.b(address),       // io registers begin
             0xFF01..=0xFF02 => self.serial.b(address),
             0xFF04..=0xFF07 => self.timer.b(address),
-            INTF => self.intf | 0b11100000,
+            INTF => self.m_intf | 0b11100000,
             0xFF10..=0xFF3F => self.apu.b(address),
             DMA => 0xFF, // KLUDGE: not sure what real hardware does in this case
-            KEY0 | KEY1 => self.hram[(address as usize) - 0xFF00],
+            KEY0 | KEY1 => self.m_hram[(address as usize) - 0xFF00],
             0xFF40..=0xFF45 | 0xFF47..=0xFF4F | 0xFF68..=0xFF6B => self.ppu.b(address),
-            0xFF03..=0xFFFE => self.hram[(address as usize) - 0xFF00], // hram that is not special
-            INTE => self.inte | 0b11100000,
+            0xFF03..=0xFFFE => self.m_hram[(address as usize) - 0xFF00], // hram that is not special
+            INTE => self.m_inte | 0b11100000,
         }
     }
 
@@ -207,14 +223,17 @@ impl Mmu {
 
     pub fn wb(&mut self, address: u16, value: u8) {
         match address {
+            0x0000..=0x00FF if self.enable_bios && self.bios_mapped => {
+                self.bios.as_ref().unwrap().wb(address, value)
+            }
             0x0000..=0x7FFF => self.cart.rom_wb(address, value), // cart read rom
             0x8000..=0x9FFF => {
                 self.ppu.wb(address, value);
             } // ppu read ram
             0xA000..=0xBFFF => self.cart.ram_wb(address, value), // cart read ram
-            0xC000..=0xCFFF => self.wram[(address as usize) - 0xC000] = value, // wram bank 0
-            0xD000..=0xDFFF => self.wram[(address as usize) - 0xC000] = value, // wram bank 1, CGB: 1-7 switchable
-            0xE000..=0xFDFF => self.wram[(address as usize) - 0xE000] = value, // mirror of 0xC000..0xDDFF, prohibited to use, (used)
+            0xC000..=0xCFFF => self.m_wram[(address as usize) - 0xC000] = value, // wram bank 0
+            0xD000..=0xDFFF => self.m_wram[(address as usize) - 0xC000] = value, // wram bank 1, CGB: 1-7 switchable
+            0xE000..=0xFDFF => self.m_wram[(address as usize) - 0xE000] = value, // mirror of 0xC000..0xDDFF, prohibited to use, (used)
             0xFE00..=0xFE9F => {
                 self.ppu.wb(address, value);
             } // oam (sprite attribute table)
@@ -222,17 +241,21 @@ impl Mmu {
             0xFF00 => self.joypad.wb(address, value), // io registers begin
             0xFF01..=0xFF02 => self.serial.wb(address, value),
             0xFF04..=0xFF07 => self.timer.wb(address, value),
-            INTF => self.intf = value & 0b00011111,
+            INTF => self.m_intf = value & 0b00011111,
             0xFF10..=0xFF3F => self.apu.wb(address, value),
             DMA => self.dma_transfer(value),
-            KEY0 | KEY1 => self.hram[(address as usize) - 0xFF00] = value,
+            KEY0 | KEY1 => self.m_hram[(address as usize) - 0xFF00] = value,
+            BANK => match value {
+                0x01 | 0xFF => self.bios_mapped = false,
+                _ => {}
+            },
             0xFF40..=0xFF45 | 0xFF47..=0xFF4F | 0xFF68..=0xFF6B => {
                 if self.ppu.wb(address, value) {
-                    self.intf |= 0b00010;
+                    self.m_intf |= 0b00010;
                 }
             }
-            0xFF03..=0xFFFE => self.hram[(address as usize) - 0xFF00] = value, // hram that is not special
-            INTE => self.inte = value & 0b00011111,
+            0xFF03..=0xFFFE => self.m_hram[(address as usize) - 0xFF00] = value, // hram that is not special
+            INTE => self.m_inte = value & 0b00011111,
         }
     }
 

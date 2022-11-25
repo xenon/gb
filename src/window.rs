@@ -14,7 +14,7 @@ use winit::{
 use winit_input_helper::WinitInputHelper;
 
 use crate::{
-    cpu::Cpu,
+    gb::Gb,
     joypad::Button,
     ppu::{LCD_HEIGHT, LCD_WIDTH},
     thread::{system_thread, SystemEvent, SystemInput},
@@ -46,17 +46,17 @@ fn relay_thread(
         .unwrap_or_else(|_| panic!("Failed to build relay thread!"))
 }
 
-pub fn launch_window(cpu: Cpu) {
+pub fn launch_window(gb: Gb) {
     // Init system and thread
-    let title = cpu.m.cart.info.title.clone();
-    let (sh, system_input, system_event) = system_thread(cpu);
+    let title = gb.cart_info().title.clone();
+    let (sh, system_input, system_event) = system_thread(gb);
     let mut system_handle = Some(sh);
 
     // Winit + Pixels
     let event_loop = EventLoopBuilder::<EventWrapper>::with_user_event().build();
     let mut input = WinitInputHelper::new();
     let window = {
-        let size = LogicalSize::new((LCD_WIDTH * 3) as f64, (LCD_HEIGHT * 3) as f64);
+        let size = LogicalSize::new((LCD_WIDTH * 2) as f64, (LCD_HEIGHT * 2) as f64);
         WindowBuilder::new()
             .with_title(format!("gb | {}", title))
             .with_inner_size(size)
@@ -71,7 +71,7 @@ pub fn launch_window(cpu: Cpu) {
         Pixels::new(LCD_WIDTH as u32, LCD_HEIGHT as u32, surface_texture)
             .expect("Could not create Pixels struct")
     };
-    pixels.resize_surface(LCD_WIDTH as u32 * 3, LCD_HEIGHT as u32 * 3);
+    pixels.resize_surface(LCD_WIDTH as u32 * 2, LCD_HEIGHT as u32 * 2);
 
     // Custom Events
     let exit_event = event_loop.create_proxy();

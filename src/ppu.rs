@@ -114,8 +114,8 @@ pub struct Ppu {
     window_counter: Option<u8>,
     palette_index: [u8; LCD_WIDTH],
     blank_frame: bool,
-    enable_background: bool,
-    enable_obj: bool,
+    pub enable_background: bool,
+    pub enable_obj: bool,
 }
 
 impl Ppu {

@@ -61,13 +61,17 @@ impl Registers {
             r: [0; 10],
             pc: 0x100,
         };
-        r.reset();
+        r.reset(false);
         r
     }
 
-    pub fn reset(&mut self) {
-        self.r = [0x01, 0x00, 0xFF, 0x13, 0x00, 0xC1, 0x84, 0x03, 0xFF, 0xFE];
-        self.pc = 0x100;
+    pub fn reset(&mut self, has_bios: bool) {
+        if !has_bios {
+            self.r = [0x01, 0x00, 0xFF, 0x13, 0x00, 0xC1, 0x84, 0x03, 0xFF, 0xFE];
+            self.pc = 0x100;
+        } else {
+            self.pc = 0;
+        }
     }
 
     pub fn get_8(&self, r: Reg8) -> u8 {

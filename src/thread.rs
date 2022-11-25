@@ -5,9 +5,9 @@ use std::{
 };
 
 use crate::{
-    cpu::Cpu,
+    gb::Gb,
     joypad::Button,
-    ppu::{LCD_HEIGHT, LCD_WIDTH, ONE_FRAME_CYCLES, ONE_FRAME_DURATION},
+    ppu::{LCD_HEIGHT, LCD_WIDTH, ONE_FRAME_DURATION},
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -26,13 +26,13 @@ pub enum SystemEvent {
     Serial,
 }
 
-pub fn system_thread(cpu: Cpu) -> (JoinHandle<()>, Sender<SystemInput>, Receiver<SystemEvent>) {
+pub fn system_thread(gb: Gb) -> (JoinHandle<()>, Sender<SystemInput>, Receiver<SystemEvent>) {
     let (input_send, input_recv) = channel();
     let (event_send, event_recv) = channel();
     let handle = Builder::new()
         .name("gb system".to_string())
         .spawn(move || {
-            system_loop(cpu, input_recv, event_send);
+            system_loop(gb, input_recv, event_send);
         })
         .unwrap_or_else(|_| panic!("Failed to build GB thread"));
     (handle, input_send, event_recv)
@@ -40,7 +40,7 @@ pub fn system_thread(cpu: Cpu) -> (JoinHandle<()>, Sender<SystemInput>, Receiver
 
 /// The System starts paused and must be sent SystemEvent::TogglePause to start it
 /// Sending SystemInput::Exit will cause the thread to exit and send out SystemEvent::ExitNow
-fn system_loop(mut cpu: Cpu, input: Receiver<SystemInput>, event: Sender<SystemEvent>) {
+fn system_loop(mut gb: Gb, input: Receiver<SystemInput>, event: Sender<SystemEvent>) {
     let mut cycles = 0;
     let mut paused = true;
     loop {
@@ -57,7 +57,7 @@ fn system_loop(mut cpu: Cpu, input: Receiver<SystemInput>, event: Sender<SystemE
                     return;
                 }
                 SystemInput::Reset => {
-                    cpu.reset();
+                    gb.reset();
                 }
                 SystemInput::TogglePause => {
                     if paused {
@@ -65,19 +65,16 @@ fn system_loop(mut cpu: Cpu, input: Receiver<SystemInput>, event: Sender<SystemE
                     }
                     paused = !paused;
                 }
-                SystemInput::JoypadOn(b) => cpu.m.joypad.press(b),
-                SystemInput::JoypadOff(b) => cpu.m.joypad.release(b),
+                SystemInput::JoypadOn(b) => gb.button_press(b),
+                SystemInput::JoypadOff(b) => gb.button_release(b),
             }
         }
 
         if !paused {
             // Run CPU
-            while cycles < ONE_FRAME_CYCLES {
-                cycles += cpu.step().2;
-            }
-            cycles -= ONE_FRAME_CYCLES; // carry over the remaining cycles
+            cycles = gb.step_frame(cycles);
 
-            let buf = cpu.get_buf();
+            let buf = gb.get_buf();
 
             // Get next frame and send it
             event

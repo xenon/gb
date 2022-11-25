@@ -1,6 +1,6 @@
-use crate::cpu::Cpu;
+use crate::gb::Gb;
 
-pub fn run_trace(mut cpu: Cpu, max_cycles: Option<u64>, verbose: bool) {
+pub fn run_trace(mut gb: Gb, max_cycles: Option<u64>, verbose: bool) {
     let mut cycles: u64 = 0;
     loop {
         if let Some(c) = max_cycles {
@@ -8,14 +8,14 @@ pub fn run_trace(mut cpu: Cpu, max_cycles: Option<u64>, verbose: bool) {
                 break;
             }
         }
-        let (pc, op, step_cycles) = cpu.step();
+        let (pc, op, step_cycles) = gb.step();
         if verbose {
-            println!("({:#06x}): [{:#04x}]\t{}", pc, op, cpu.print());
+            println!("({:#06x}): [{:#04x}]\t{}", pc, op, gb.print());
         } else {
             println!("({:#06x}): [{:#04x}]", pc, op);
         }
         cycles += step_cycles as u64;
     }
-    let (pc, op) = cpu.next_step();
-    println!("({:#06x}): [{:#04x}]\t{}", pc, op, cpu.print());
+    let (pc, op) = gb.next_step();
+    println!("({:#06x}): [{:#04x}]\t{}", pc, op, gb.print());
 }

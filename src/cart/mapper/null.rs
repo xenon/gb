@@ -8,6 +8,7 @@ impl NullMapper {
     }
 }
 
+#[allow(unused_variables)]
 impl Mapper for NullMapper {
     fn reset(&mut self) {}
 

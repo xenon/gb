@@ -1,8 +1,4 @@
-use crate::{
-    cart::Cartridge,
-    mmu::Mmu,
-    ppu::{Ppu, LCD_HEIGHT, LCD_WIDTH},
-};
+use crate::mmu::Mmu;
 
 use self::{
     info::{CYCLES, CYCLES_CB, CYCLES_CB_BIT_HL},
@@ -17,7 +13,7 @@ mod test;
 pub const HZ: u32 = 4194304; // 2^22
 
 pub struct Cpu {
-    r: Registers,
+    pub r: Registers,
     pub m: Mmu,
     halt: bool,
     stop: bool,
@@ -28,30 +24,10 @@ pub struct Cpu {
 }
 
 impl Cpu {
-    pub(crate) fn print(&self) -> String {
-        format!(
-            "a: {:#04x}\tf: {:#04x}\tb: {:#04x}\tc: {:#04x}\td: {:#04x}\te: {:#04x}\th: {:#04x}\tl: {:#04x}\tsp: {:#06x}",
-            self.r.get_8(Reg8::A),
-            self.r.get_8(Reg8::F),
-            self.r.get_8(Reg8::B),
-            self.r.get_8(Reg8::C),
-            self.r.get_8(Reg8::D),
-            self.r.get_8(Reg8::E),
-            self.r.get_8(Reg8::H),
-            self.r.get_8(Reg8::L),
-            self.r.get_16(Reg16::SP),
-        )
-    }
-
-    pub(crate) fn next_step(&self) -> (u16, u8) {
-        (self.r.pc, self.m.b(self.r.pc))
-    }
-
-    pub fn new(cart: Cartridge, ppu: Ppu) -> Self {
-        let m = Mmu::new(cart, ppu);
+    pub fn new(mmu: Mmu) -> Self {
         Self {
             r: Registers::new(),
-            m,
+            m: mmu,
             halt: false,
             stop: false,
             ime: false,
@@ -62,9 +38,6 @@ impl Cpu {
     }
 
     pub fn reset(&mut self) {
-        self.r.reset();
-        self.m.reset();
-
         self.halt = false;
         self.stop = false;
         self.ime = false;
@@ -111,10 +84,6 @@ impl Cpu {
         };
         self.m.step(cycles); // run other devices
         (pc, instr, cycles)
-    }
-
-    pub fn get_buf(&mut self) -> [[u8; LCD_WIDTH]; LCD_HEIGHT] {
-        self.m.ppu.buf
     }
 
     fn alu_arg_get(&self, offset: u32) -> u8 {

@@ -1,15 +1,19 @@
 #![allow(clippy::new_without_default)]
 
+use std::{path::PathBuf, process::exit};
+
+use bios::Bios;
 use cart::Cartridge;
 use clap::Parser;
-use cpu::Cpu;
-use ppu::Ppu;
+use gb::Gb;
 use trace::run_trace;
 use window::launch_window;
 
 pub mod apu;
+pub mod bios;
 pub mod cart;
 pub mod cpu;
+pub mod gb;
 pub mod joypad;
 pub mod mmu;
 pub mod ppu;
@@ -30,6 +34,8 @@ enum Command {
 struct EmuArgs {
     #[clap(short, long, value_hint = clap::ValueHint::FilePath)]
     cart: std::path::PathBuf,
+    #[clap(short, long, value_hint = clap::ValueHint::FilePath)]
+    bios: Option<std::path::PathBuf>,
 }
 
 #[derive(Parser)]
@@ -48,28 +54,41 @@ struct CartridgeArgs {
     cart: std::path::PathBuf,
 }
 
+fn make_gb(cart: PathBuf, bios: Option<PathBuf>) -> Gb {
+    match Cartridge::new_from_file(&cart) {
+        Ok(cart) => {
+            let bios = match bios {
+                Some(file) => {
+                    let bios = Bios::new_from_file(&file);
+                    if let Err(e) = bios {
+                        eprintln!("Error reading bios:");
+                        eprintln!("{}", e);
+                        exit(-2)
+                    }
+                    Some(bios.unwrap())
+                }
+                None => None,
+            };
+            return Gb::new(cart, bios);
+        }
+        Err(e) => {
+            eprintln!("Error reading cartridge:");
+            eprintln!("{}", e);
+            exit(-1)
+        }
+    }
+}
+
 fn main() {
     match Command::parse() {
-        Command::Emu(args) => match Cartridge::new_from_file(&args.cart) {
-            Ok(cart) => {
-                let cpu = Cpu::new(cart, Ppu::new());
-                launch_window(cpu);
-            }
-            Err(e) => {
-                eprintln!("Error reading cartridge:");
-                eprintln!("{}", e);
-            }
-        },
-        Command::Trace(args) => match Cartridge::new_from_file(&args.cart) {
-            Ok(cart) => {
-                let cpu = Cpu::new(cart, Ppu::new());
-                run_trace(cpu, args.cycles, args.verbose);
-            }
-            Err(e) => {
-                eprintln!("Error reading cartridge:");
-                eprintln!("{}", e);
-            }
-        },
+        Command::Emu(args) => {
+            let gb = make_gb(args.cart, args.bios);
+            launch_window(gb);
+        }
+        Command::Trace(args) => {
+            let gb = make_gb(args.cart, None);
+            run_trace(gb, args.cycles, args.verbose);
+        }
         Command::CartInfo(args) => {
             let cart = Cartridge::new_from_file(&args.cart);
             match cart {
