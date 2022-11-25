@@ -18,3 +18,4 @@ pub const CYCLES: [u32; 256] = [
    12, 12,  8,  4,  0, 16,  8, 16, 12,  8, 16, 4,  0,  0, 8, 16
 ];
 pub const CYCLES_CB: [u32; 16] = [8, 8, 8, 8, 8, 8, 16, 8, 8, 8, 8, 8, 8, 8, 16, 8];
+pub const CYCLES_CB_BIT_HL: u32 = 12;

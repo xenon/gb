@@ -5,7 +5,7 @@ use crate::{
 };
 
 use self::{
-    info::{CYCLES, CYCLES_CB},
+    info::{CYCLES, CYCLES_CB, CYCLES_CB_BIT_HL},
     registers::{Flag, Reg16, Reg8, Registers},
 };
 
@@ -599,6 +599,9 @@ impl Cpu {
                 self.alu_arg_set(offset, res);
             }
         }
-        CYCLES_CB[instr as usize % 16]
+        match instr {
+            0x46 | 0x56 | 0x66 | 0x76 | 0x4E | 0x5E | 0x6E | 0x7E => CYCLES_CB_BIT_HL,
+            _ => CYCLES_CB[instr as usize % 16],
+        }
     }
 }
