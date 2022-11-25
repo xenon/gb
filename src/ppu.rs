@@ -367,7 +367,7 @@ impl Ppu {
             }
 
             let tile_offset_y = if get_attribute(tile_attributes, Attribute::YFlip) {
-                (obj_height - 1 - (self.m_ly - y)) as u16
+                ((obj_height - 1).wrapping_sub(self.m_ly.wrapping_sub(y))) as u16
             } else {
                 self.m_ly.wrapping_sub(y) as u16
             };
