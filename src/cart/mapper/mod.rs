@@ -1,14 +1,17 @@
-use self::{mbc1::Mbc1, mbc2::Mbc2, rom::Rom};
+use self::{mbc1::Mbc1, mbc2::Mbc2, mbc3::Mbc3, null::NullMapper, rom::Rom};
 
 use super::info::CartridgeInfo;
 
 mod mbc1;
 mod mbc2;
+mod mbc3;
+mod null;
 mod rom;
 
 const ROM_BANK_SIZE: usize = 0x4000;
 const RAM_BANK_SIZE: usize = 0x2000;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MapperType {
     Rom,
     Mbc1,
@@ -43,12 +46,15 @@ pub fn new(bytes: Vec<u8>, info: &CartridgeInfo) -> Box<dyn Mapper> {
         MapperType::Rom => Box::new(Rom::new(bytes)),
         MapperType::Mbc1 => Box::new(Mbc1::new(bytes, info)),
         MapperType::Mbc2 => Box::new(Mbc2::new(bytes, info)),
-        MapperType::Mmm01 => todo!(),
-        MapperType::Mbc3 => todo!(),
-        MapperType::Mbc5 => todo!(),
-        MapperType::Mbc6 => todo!(),
-        MapperType::Mbc7 => todo!(),
-        MapperType::Huc3 => todo!(),
-        MapperType::Huc1 => todo!(),
+        MapperType::Mbc3 => Box::new(Mbc3::new(bytes, info)),
+        MapperType::Mmm01
+        | MapperType::Mbc5
+        | MapperType::Mbc6
+        | MapperType::Mbc7
+        | MapperType::Huc3
+        | MapperType::Huc1 => {
+            eprintln!("Mapper type unsupported: {:?}!", info.mapper);
+            Box::new(NullMapper::new())
+        }
     }
 }

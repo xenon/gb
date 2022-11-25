@@ -341,7 +341,10 @@ impl Ppu {
             let y_end = y.wrapping_add(obj_height);
 
             // Object does not intersect ly in Y
-            if !(y..y_end).contains(&self.m_ly) {
+            // Second case covers objects scrolling in, where y subtraction wraps to 256
+            if !((y..y_end).contains(&self.m_ly)
+                || (y > 240 && y_end < LCD_HEIGHT as u8 && self.m_ly < y_end))
+            {
                 continue;
             }
             // Only render 10 sprites, does not check X coordinate
@@ -366,7 +369,7 @@ impl Ppu {
             let tile_offset_y = if get_attribute(tile_attributes, Attribute::YFlip) {
                 (obj_height - 1 - (self.m_ly - y)) as u16
             } else {
-                (self.m_ly - y) as u16
+                self.m_ly.wrapping_sub(y) as u16
             };
             let tile_addr = 0x8000
                 + (if tall_objects {
