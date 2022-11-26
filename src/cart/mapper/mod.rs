@@ -43,7 +43,7 @@ pub trait Mapper: Send {
 
 pub fn new(bytes: Vec<u8>, info: &CartridgeInfo) -> Box<dyn Mapper> {
     match info.mapper {
-        MapperType::Rom => Box::new(Rom::new(bytes)),
+        MapperType::Rom => Box::new(Rom::new(bytes, info)),
         MapperType::Mbc1 => Box::new(Mbc1::new(bytes, info)),
         MapperType::Mbc2 => Box::new(Mbc2::new(bytes, info)),
         MapperType::Mbc3 => Box::new(Mbc3::new(bytes, info)),

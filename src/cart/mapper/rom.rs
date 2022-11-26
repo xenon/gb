@@ -1,3 +1,5 @@
+use crate::cart::info::CartridgeInfo;
+
 use super::Mapper;
 
 pub struct Rom {
@@ -5,7 +7,11 @@ pub struct Rom {
 }
 
 impl Rom {
-    pub fn new(rom: Vec<u8>) -> Self {
+    pub fn new(mut rom: Vec<u8>, info: &CartridgeInfo) -> Self {
+        if rom.len() < info.rom_size {
+            // If the cart is too small, make space (game genie)
+            rom.resize(info.rom_size, 0);
+        };
         Rom { rom }
     }
 }
