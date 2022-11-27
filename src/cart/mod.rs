@@ -8,7 +8,6 @@ use self::{
 pub mod info;
 mod mapper;
 
-// Eventually I'll need mapper information to go here...
 pub struct Cartridge {
     mapper: Box<dyn Mapper>,
     pub info: CartridgeInfo,
@@ -17,6 +16,7 @@ pub struct Cartridge {
 pub enum CartridgeError {
     FileError(Box<dyn Error>),
     CartridgeInfoError(CartridgeInfoError),
+    GameGenieError,
 }
 
 impl std::fmt::Display for CartridgeError {
@@ -24,12 +24,15 @@ impl std::fmt::Display for CartridgeError {
         match self {
             CartridgeError::FileError(e) => write!(f, "File Error: {}!", e),
             CartridgeError::CartridgeInfoError(e) => write!(f, "Cartridge Error: {}", e),
+            CartridgeError::GameGenieError => {
+                write!(f, "Game Genie ROM does not look like a game genie!")
+            }
         }
     }
 }
 
 impl Cartridge {
-    pub fn new_from_file(file: &Path) -> Result<Self, CartridgeError> {
+    fn load_cart(file: &Path) -> Result<(Vec<u8>, CartridgeInfo), CartridgeError> {
         let bytes = match read(file) {
             Ok(b) => b,
             Err(e) => return Err(CartridgeError::FileError(Box::new(e))),
@@ -38,11 +41,31 @@ impl Cartridge {
             Ok(i) => i,
             Err(e) => return Err(CartridgeError::CartridgeInfoError(e)),
         };
+        Ok((bytes, info))
+    }
+
+    pub fn new_from_file(file: &Path) -> Result<Self, CartridgeError> {
+        let (bytes, info) = Cartridge::load_cart(file)?;
         let mapper = mapper::new(bytes, &info);
         Ok(Self { mapper, info })
     }
 
-    pub fn reset(&mut self) {}
+    pub fn new_from_file_genie(file: &Path, genie: &Path) -> Result<Self, CartridgeError> {
+        let (cart_bytes, cart_info) = Cartridge::load_cart(file)?;
+        let cart_mapper = mapper::new(cart_bytes, &cart_info);
+
+        let (genie_bytes, genie_info) = Cartridge::load_cart(genie)?;
+        // Not sure if game genie has a unique way to identify itself...
+        let genie_mapper = mapper::new_genie(genie_bytes, &genie_info, cart_mapper);
+        Ok(Self {
+            mapper: genie_mapper,
+            info: cart_info,
+        })
+    }
+
+    pub fn reset(&mut self) {
+        self.mapper.reset()
+    }
 
     pub fn header_checksum(&self) -> bool {
         self.mapper.calculate_header_checksum() == self.info.header_checksum

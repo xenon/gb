@@ -90,11 +90,12 @@ impl Mmu {
     }
 
     pub fn reset(&mut self) {
+        self.apu.reset();
         self.cart.reset();
         self.joypad.reset();
+        self.ppu.reset();
         self.serial.reset();
         self.timer.reset();
-        self.ppu.reset();
 
         self.m_intf = 0xE1;
 

@@ -1,7 +1,8 @@
-use self::{mbc1::Mbc1, mbc2::Mbc2, mbc3::Mbc3, null::NullMapper, rom::Rom};
+use self::{game_genie::GameGenie, mbc1::Mbc1, mbc2::Mbc2, mbc3::Mbc3, null::NullMapper, rom::Rom};
 
 use super::info::CartridgeInfo;
 
+mod game_genie;
 mod mbc1;
 mod mbc2;
 mod mbc3;
@@ -57,4 +58,12 @@ pub fn new(bytes: Vec<u8>, info: &CartridgeInfo) -> Box<dyn Mapper> {
             Box::new(NullMapper::new())
         }
     }
+}
+
+pub fn new_genie(
+    genie_bytes: Vec<u8>,
+    genie_info: &CartridgeInfo,
+    mapper: Box<dyn Mapper>,
+) -> Box<GameGenie> {
+    Box::new(GameGenie::new(genie_bytes, genie_info, mapper))
 }

@@ -36,6 +36,8 @@ struct EmuArgs {
     cart: std::path::PathBuf,
     #[clap(short, long, value_hint = clap::ValueHint::FilePath)]
     bios: Option<std::path::PathBuf>,
+    #[clap(short, long, value_hint = clap::ValueHint::FilePath)]
+    genie: Option<std::path::PathBuf>,
 }
 
 #[derive(Parser)]
@@ -54,39 +56,43 @@ struct CartridgeArgs {
     cart: std::path::PathBuf,
 }
 
-fn make_gb(cart: PathBuf, bios: Option<PathBuf>) -> Gb {
-    match Cartridge::new_from_file(&cart) {
-        Ok(cart) => {
-            let bios = match bios {
-                Some(file) => {
-                    let bios = Bios::new_from_file(&file);
-                    if let Err(e) = bios {
-                        eprintln!("Error reading bios:");
-                        eprintln!("{}", e);
-                        exit(-2)
-                    }
-                    Some(bios.unwrap())
-                }
-                None => None,
-            };
-            return Gb::new(cart, bios);
-        }
+fn make_gb(cart: PathBuf, bios: Option<PathBuf>, genie: Option<PathBuf>) -> Gb {
+    let cart_res = match genie {
+        Some(g) => Cartridge::new_from_file_genie(&cart, &g),
+        None => Cartridge::new_from_file(&cart),
+    };
+
+    let cart = match cart_res {
+        Ok(cart) => cart,
         Err(e) => {
             eprintln!("Error reading cartridge:");
             eprintln!("{}", e);
             exit(-1)
         }
-    }
+    };
+    let bios = match bios {
+        Some(file) => {
+            let bios = Bios::new_from_file(&file);
+            if let Err(e) = bios {
+                eprintln!("Error reading bios:");
+                eprintln!("{}", e);
+                exit(-2)
+            }
+            Some(bios.unwrap())
+        }
+        None => None,
+    };
+    return Gb::new(cart, bios);
 }
 
 fn main() {
     match Command::parse() {
         Command::Emu(args) => {
-            let gb = make_gb(args.cart, args.bios);
+            let gb = make_gb(args.cart, args.bios, args.genie);
             launch_window(gb);
         }
         Command::Trace(args) => {
-            let gb = make_gb(args.cart, None);
+            let gb = make_gb(args.cart, None, None);
             run_trace(gb, args.cycles, args.verbose);
         }
         Command::CartInfo(args) => {
