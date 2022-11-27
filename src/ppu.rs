@@ -170,6 +170,15 @@ impl Ppu {
         self.blank_frame = false;
     }
 
+    fn stat_check_mode(&mut self) -> bool {
+        let mode = unsafe { Mode::from_unchecked(self.m_stat & 0b11) };
+        match mode {
+            Mode::HBlank => self.get_stat_flag(StatFlag::Mode0HblankInt),
+            Mode::VBlank => self.get_stat_flag(StatFlag::Mode1VBlankInt),
+            Mode::InOAM => self.get_stat_flag(StatFlag::Mode2OAMInt),
+            _ => false,
+        }
+    }
     fn stat_switch_mode(&mut self, mode: Mode) -> bool {
         self.mode = mode;
         self.m_stat = (self.m_stat & 0b01111000) | self.mode as u8;
@@ -190,6 +199,16 @@ impl Ppu {
     fn write_ly(&mut self, new_ly: u8) -> bool {
         self.m_ly = new_ly;
         self.update_stat_ly()
+    }
+
+    fn write_wy(&mut self, new_wy: u8) {
+        self.m_wy = new_wy;
+        if self.m_ly == self.m_wy
+            && self.window_counter.is_none()
+            && self.get_lcdc_flag(LcdcFlag::WindowEnable)
+        {
+            self.window_counter = Some(0);
+        }
     }
 
     pub fn step(&mut self, mut cycles: u32) -> (bool, bool) {
@@ -217,7 +236,7 @@ impl Ppu {
                         if self.mode != Mode::InOAM {
                             intf_lcdstat |= self.stat_switch_mode(Mode::InOAM);
                         }
-                    } else if self.internal_cycles <= 168 && self.mode != Mode::HBlank {
+                    } else if self.internal_cycles <= 168 {
                         if self.mode != Mode::TransferData {
                             self.stat_switch_mode(Mode::TransferData);
                             if self.m_ly == self.m_wy
@@ -270,7 +289,6 @@ impl Ppu {
         }
 
         let render_window = self.get_lcdc_flag(LcdcFlag::WindowEnable) && self.m_wx <= 166;
-        let window_x = self.m_wx.wrapping_sub(7);
 
         let window_y = if render_window && self.window_counter.is_some() {
             let window_line = self.window_counter.as_mut().unwrap();
@@ -286,13 +304,14 @@ impl Ppu {
         let tiledata_base = if tiledata_unsigned { 0x8000 } else { 0x8800 };
 
         for x in 0..LCD_WIDTH {
-            let window_visible = render_window && (x as u8) >= window_x && window_y.is_some();
+            let window_x = (x as i16) - ((self.m_wx as i16) - 7);
+            let window_visible = render_window && window_x >= 0 && window_y.is_some();
             let (full_x, full_y) = if window_visible {
-                ((x as u8) - window_x, window_y.unwrap())
+                (window_x as u16, window_y.unwrap())
             } else {
-                ((x as u8).wrapping_add(self.m_scx), background_y)
+                ((x as u8).wrapping_add(self.m_scx) as u16, background_y)
             };
-            let (tile_x, tile_offset_x) = ((full_x / 8) as u16, full_x % 8);
+            let (tile_x, tile_offset_x) = ((full_x / 8), full_x % 8);
             let (tile_y, tile_offset_y) = ((full_y / 8) as u16, (full_y % 8) as u16);
 
             let background_map_base: u16 = self.bg_map_base(window_visible);
@@ -474,17 +493,16 @@ impl Ppu {
                 self.m_lcdc = value;
                 let is_enabled = self.get_lcdc_flag(LcdcFlag::LCDEnable);
                 if was_enabled && !is_enabled {
-                    self.m_ly = 0;
                     self.internal_cycles = 0;
                     self.mode = Mode::VBlank;
                     self.blank_frame = true;
                     self.window_counter = None;
-                    return self.update_stat_ly();
+                    return self.write_ly(0);
                 }
             }
             STAT => {
                 self.m_stat = (value & 0b01111000) | self.mode as u8;
-                return self.update_stat_ly();
+                return self.update_stat_ly() || self.stat_check_mode();
             }
             SCY => self.m_scy = value,
             SCX => self.m_scx = value,
@@ -496,7 +514,9 @@ impl Ppu {
             BGP => self.m_bgp = value,
             OBP0 => self.m_obp0 = value,
             OBP1 => self.m_obp1 = value,
-            WY => self.m_wy = value,
+            WY => {
+                self.write_wy(value);
+            }
             WX => self.m_wx = value,
             UNKNOWN_1 | VBK | BCPS | BCPD | OCPS | OCPD => (),
             _ => unreachable!(),
