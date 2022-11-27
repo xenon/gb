@@ -304,7 +304,7 @@ impl Ppu {
         let tiledata_base = if tiledata_unsigned { 0x8000 } else { 0x8800 };
 
         for x in 0..LCD_WIDTH {
-            let window_x = (x as i16) - ((self.m_wx as i16) - 6);
+            let window_x = (x as i16) - ((self.m_wx as i16) - 7);
             let window_visible = render_window && window_x >= 0 && window_y.is_some();
             let (full_x, full_y) = if window_visible {
                 (window_x as u16, window_y.unwrap())
