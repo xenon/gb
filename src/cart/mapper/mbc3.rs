@@ -10,6 +10,7 @@ const RTC_DH: u8 = 0x0C;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum RamMode {
+    None,
     Bank(usize),
     Seconds,
     Minutes,
@@ -26,6 +27,8 @@ pub struct Mbc3 {
     has_timer: bool,
     ram_rtc_enable: bool,
     rom_bank: usize,
+    rom_offset: usize,
+    ram_offset: usize,
     mode: RamMode,
     latch_read_0: bool,
 }
@@ -40,8 +43,29 @@ impl Mbc3 {
             has_timer: info.time,
             ram_rtc_enable: false,
             rom_bank: 1,
-            mode: RamMode::Bank(0),
+            rom_offset: 0x4000,
+            ram_offset: 0,
+            mode: RamMode::None,
             latch_read_0: false,
+        }
+    }
+
+    fn recalculate_offsets(&mut self) {
+        let rom_banks = match self.rom.len() / ROM_BANK_SIZE {
+            0 => 1,
+            n => n,
+        };
+        self.rom_offset = (self.rom_bank % rom_banks) * ROM_BANK_SIZE;
+        //eprintln!("rom_banks: {}, offset: {:#06x}", rom_banks, self.rom_offset);
+        if let RamMode::Bank(ram_bank) = self.mode {
+            let ram_banks = match self.ram.len() / RAM_BANK_SIZE {
+                0 => 1,
+                n => n,
+            };
+            self.ram_offset = (ram_bank % ram_banks) * RAM_BANK_SIZE;
+            //eprintln!("ram_banks: {}, offset: {:#06x}", ram_banks, self.ram_offset);
+        } else {
+            self.ram_offset = 0;
         }
     }
 }
@@ -53,8 +77,9 @@ impl Mapper for Mbc3 {
         }
         self.ram_rtc_enable = false;
         self.rom_bank = 1;
-        self.mode = RamMode::Bank(0);
+        self.mode = RamMode::None;
         self.latch_read_0 = false;
+        self.recalculate_offsets();
     }
 
     fn save_size(&self) -> Option<usize> {
@@ -89,35 +114,35 @@ impl Mapper for Mbc3 {
     fn rom_b(&self, address: u16) -> u8 {
         match address {
             0x0000..=0x3FFF => self.rom[address as usize],
-            0x4000..=0x7FFF => {
-                let index = (address as usize - 0x4000) + (self.rom_bank * ROM_BANK_SIZE);
-                self.rom[index]
-            }
+            0x4000..=0x7FFF => self.rom[(address as usize - 0x4000) + self.rom_offset],
             _ => unreachable!(),
         }
     }
     fn rom_wb(&mut self, address: u16, value: u8) {
-        let value = value & 0x0F;
         match address {
             0x0000..=0x1FFF => {
-                self.ram_rtc_enable = value == 0x0A;
+                if self.has_ram || self.has_timer {
+                    self.ram_rtc_enable = value == 0x0A;
+                }
             }
             0x2000..=0x3FFF => {
-                self.rom_bank = match value & 0b1111111 {
+                self.rom_bank = match value & 0b01111111 {
                     0 => 1,
                     b => b as usize,
                 };
+                self.recalculate_offsets();
             }
             0x4000..=0x5FFF => {
                 self.mode = match value {
-                    0x00..=0x03 => RamMode::Bank(value as usize),
-                    RTC_S => RamMode::Seconds,
-                    RTC_M => RamMode::Minutes,
-                    RTC_H => RamMode::Hours,
-                    RTC_DL => RamMode::DayLow,
-                    RTC_DH => RamMode::DayHigh,
-                    _ => unreachable!(),
-                }
+                    0x00..=0x03 if self.has_ram => RamMode::Bank(value as usize),
+                    RTC_S if self.has_battery => RamMode::Seconds,
+                    RTC_M if self.has_battery => RamMode::Minutes,
+                    RTC_H if self.has_battery => RamMode::Hours,
+                    RTC_DL if self.has_battery => RamMode::DayLow,
+                    RTC_DH if self.has_battery => RamMode::DayHigh,
+                    _ => RamMode::None,
+                };
+                self.recalculate_offsets();
             }
             0x6000..=0x7FFF => {
                 if value == 0x00 && !self.latch_read_0 {
@@ -130,13 +155,14 @@ impl Mapper for Mbc3 {
                     self.latch_read_0 = false;
                 }
             }
-            _ => (),
+            _ => unreachable!(),
         }
     }
     fn ram_b(&self, address: u16) -> u8 {
         if self.ram_rtc_enable {
             match self.mode {
-                RamMode::Bank(n) => self.ram[(address - 0xA000) as usize + (n * RAM_BANK_SIZE)],
+                RamMode::None => 0xFF,
+                RamMode::Bank(_) => self.ram[(address - 0xA000) as usize + self.ram_offset],
                 RamMode::Seconds => 0x00,
                 RamMode::Minutes => 0x00,
                 RamMode::Hours => 0x00,
@@ -144,20 +170,19 @@ impl Mapper for Mbc3 {
                 RamMode::DayHigh => 0x00,
             }
         } else {
-            0x0F
+            0xFF
         }
     }
     fn ram_wb(&mut self, address: u16, value: u8) {
         if self.ram_rtc_enable {
             match self.mode {
-                RamMode::Bank(n) => {
-                    self.ram[(address - 0xA000) as usize + (n * RAM_BANK_SIZE)] = value
-                }
+                RamMode::Bank(_) => self.ram[(address - 0xA000) as usize + self.ram_offset] = value,
                 RamMode::Seconds => (),
                 RamMode::Minutes => (),
                 RamMode::Hours => (),
                 RamMode::DayLow => (),
                 RamMode::DayHigh => (),
+                _ => (),
             }
         }
     }
