@@ -84,20 +84,17 @@ impl Mapper for Mbc2 {
         }
     }
     fn rom_wb(&mut self, address: u16, value: u8) {
-        match address {
-            0x0000..=0x3FFF => {
-                // Register selection determined by address bit 8
-                if address & 0b100000000 == 0 {
-                    self.ram_enable = value & 0x0F == 0x0A;
-                } else {
-                    self.bank = match value & 0x0F {
-                        0 => 1,
-                        b => b as usize,
-                    };
-                    self.recalculate_offsets();
-                }
+        if let 0x0000..=0x3FFF = address {
+            // Register selection determined by address bit 8
+            if address & 0b100000000 == 0 {
+                self.ram_enable = value & 0x0F == 0x0A;
+            } else {
+                self.bank = match value & 0x0F {
+                    0 => 1,
+                    b => b as usize,
+                };
+                self.recalculate_offsets();
             }
-            _ => (),
         }
     }
     fn ram_b(&self, address: u16) -> u8 {

@@ -161,25 +161,18 @@ impl Mapper for GameGenie {
         }
 
         if !state.get_flag(Control0Flag::CartPassthrough) {
-            let res = match address {
+            match address {
                 CONTROL_0 => state.m_control_0 & 0b1,
                 CODE_ENABLE => self.m_code_enable,
                 CODE_0..=CODE_0_END => self.m_code[0][(address - CODE_0) as usize],
                 CODE_1..=CODE_1_END => self.m_code[1][(address - CODE_1) as usize],
                 CODE_2..=CODE_2_END => self.m_code[2][(address - CODE_2) as usize],
-                //x if x > 0x4000 => 0xFF,
                 _ => self.rom[address as usize],
-            };
-            /*if address >= 0x2000 {
-                eprintln!("GENIE ROM: [{:#06x}] reads {:#04x}", address, res);
-            }*/
-            res
-        } else {
-            if let (true, injected_val) = self.matches_code(address) {
-                injected_val
-            } else {
-                self.mapper.rom_b(address)
             }
+        } else if let (true, injected_val) = self.matches_code(address) {
+            injected_val
+        } else {
+            self.mapper.rom_b(address)
         }
     }
     fn rom_wb(&mut self, address: u16, value: u8) {

@@ -57,9 +57,9 @@ impl Serial {
 
     fn set_control_flag(&mut self, flag: TransferFlag, is_1: bool) {
         if is_1 {
-            self.m_control = self.m_control | (flag as u8);
+            self.m_control |= flag as u8;
         } else {
-            self.m_control = self.m_control & !(flag as u8);
+            self.m_control &= !(flag as u8);
         }
     }
 

@@ -82,7 +82,7 @@ fn make_gb(cart: PathBuf, bios: Option<PathBuf>, genie: Option<PathBuf>) -> Gb {
         }
         None => None,
     };
-    return Gb::new(cart, bios);
+    Gb::new(cart, bios)
 }
 
 fn main() {

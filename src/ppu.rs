@@ -319,7 +319,7 @@ impl Ppu {
             let tilemap_addr = background_map_base + tile_x + (tile_y * 32);
             let tile_index = self.m_ram[tilemap_addr as usize - 0x8000];
             let tile_offset = if tiledata_unsigned {
-                tile_index as u16
+                tile_index as i16 as u16
             } else {
                 ((tile_index as i8) as i16 + 128) as u16
             } * 16;
@@ -332,7 +332,7 @@ impl Ppu {
 
             let palette_index = ((tile_y_data[1] & (0x80 >> tile_offset_x) != 0) as u8) << 1
                 | ((tile_y_data[0] & (0x80 >> tile_offset_x) != 0) as u8);
-            self.palette_index[x] = palette_index;
+            self.palette_index[x] = palette_index & 0b11;
 
             // Trivial mapping for now, but that's because my representation is exactly the same
             let color = (self.m_bgp >> (2 * palette_index)) & 0b11;

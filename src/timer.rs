@@ -68,7 +68,7 @@ impl Timer {
                 self.m_tima += tima_div_step as u8;
             }
         }
-        return false;
+        false
     }
 
     pub fn b(&self, address: u16) -> u8 {
