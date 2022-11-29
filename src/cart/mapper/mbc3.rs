@@ -1,6 +1,6 @@
 use crate::cart::info::CartridgeInfo;
 
-use super::{Mapper, RAM_BANK_SIZE, ROM_BANK_SIZE};
+use super::{Mapper, RamLoadError, RamSaveError, RAM_BANK_SIZE, ROM_BANK_SIZE};
 
 const RTC_S: u8 = 0x08;
 const RTC_M: u8 = 0x09;
@@ -21,6 +21,9 @@ enum RamMode {
 pub struct Mbc3 {
     rom: Vec<u8>,
     ram: Vec<u8>,
+    has_ram: bool,
+    has_battery: bool,
+    has_timer: bool,
     ram_rtc_enable: bool,
     rom_bank: usize,
     mode: RamMode,
@@ -32,6 +35,9 @@ impl Mbc3 {
         Self {
             rom,
             ram: vec![0x00; info.ram_size],
+            has_ram: info.ram,
+            has_battery: info.battery,
+            has_timer: info.time,
             ram_rtc_enable: false,
             rom_bank: 1,
             mode: RamMode::Bank(0),
@@ -42,12 +48,44 @@ impl Mbc3 {
 
 impl Mapper for Mbc3 {
     fn reset(&mut self) {
-        self.ram.iter_mut().for_each(|v| *v = 0x00);
+        if !self.has_battery {
+            self.reset_save();
+        }
         self.ram_rtc_enable = false;
         self.rom_bank = 1;
         self.mode = RamMode::Bank(0);
         self.latch_read_0 = false;
     }
+
+    fn save_size(&self) -> Option<usize> {
+        if self.has_battery {
+            Some(self.ram.len())
+        } else {
+            None
+        }
+    }
+    fn load_save(&mut self, bytes: Vec<u8>) -> Result<(), RamLoadError> {
+        if self.has_battery {
+            if bytes.len() == self.ram.len() {
+                self.ram = bytes;
+                Ok(())
+            } else {
+                Err(match bytes.len() < self.ram.len() {
+                    true => RamLoadError::TooSmall,
+                    false => RamLoadError::TooLarge,
+                })
+            }
+        } else {
+            Err(RamLoadError::Incompatible)
+        }
+    }
+    fn save_save(&mut self, bytes: Vec<u8>) -> Result<(), RamSaveError> {
+        Err(RamSaveError::Incompatible)
+    }
+    fn reset_save(&mut self) {
+        self.ram.fill(0);
+    }
+
     fn rom_b(&self, address: u16) -> u8 {
         match address {
             0x0000..=0x3FFF => self.rom[address as usize],

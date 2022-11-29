@@ -28,6 +28,13 @@ pub enum MapperType {
 
 pub trait Mapper: Send {
     fn reset(&mut self);
+
+    // sav_size returns None if the cartridge doesn't support saving
+    fn save_size(&self) -> Option<usize>;
+    fn load_save(&mut self, bytes: Vec<u8>) -> Result<(), RamLoadError>;
+    fn save_save(&mut self, bytes: Vec<u8>) -> Result<(), RamSaveError>;
+    fn reset_save(&mut self);
+
     fn rom_b(&self, address: u16) -> u8;
     fn rom_wb(&mut self, address: u16, value: u8);
     fn ram_b(&self, address: u16) -> u8;
@@ -44,7 +51,7 @@ pub trait Mapper: Send {
 
 pub fn new(bytes: Vec<u8>, info: &CartridgeInfo) -> Box<dyn Mapper> {
     match info.mapper {
-        MapperType::Rom => Box::new(Rom::new(bytes, info)),
+        MapperType::Rom => Box::new(Rom::new(bytes)),
         MapperType::Mbc1 => Box::new(Mbc1::new(bytes, info)),
         MapperType::Mbc2 => Box::new(Mbc2::new(bytes, info)),
         MapperType::Mbc3 => Box::new(Mbc3::new(bytes, info)),
@@ -66,4 +73,14 @@ pub fn new_genie(
     mapper: Box<dyn Mapper>,
 ) -> Box<GameGenie> {
     Box::new(GameGenie::new(genie_bytes, genie_info, mapper))
+}
+
+pub enum RamLoadError {
+    Incompatible,
+    TooLarge,
+    TooSmall,
+}
+
+pub enum RamSaveError {
+    Incompatible,
 }

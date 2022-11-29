@@ -2,7 +2,7 @@ use num_enum::UnsafeFromPrimitive;
 
 use crate::cart::info::CartridgeInfo;
 
-use super::{Mapper, RAM_BANK_SIZE, ROM_BANK_SIZE};
+use super::{Mapper, RamLoadError, RamSaveError, RAM_BANK_SIZE, ROM_BANK_SIZE};
 
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, UnsafeFromPrimitive)]
@@ -86,12 +86,44 @@ impl Mbc1 {
 
 impl Mapper for Mbc1 {
     fn reset(&mut self) {
-        self.ram.iter_mut().for_each(|v| *v = 0x00);
+        if !self.has_battery {
+            self.reset_save();
+        }
         self.ram_enable = false;
         self.bank = 1;
         self.mode = BankingMode::Simple;
         self.recalculate_offsets();
     }
+
+    fn save_size(&self) -> Option<usize> {
+        if self.has_battery {
+            Some(self.ram.len())
+        } else {
+            None
+        }
+    }
+    fn load_save(&mut self, bytes: Vec<u8>) -> Result<(), RamLoadError> {
+        if self.has_battery {
+            if bytes.len() == self.ram.len() {
+                self.ram = bytes;
+                Ok(())
+            } else {
+                Err(match bytes.len() < self.ram.len() {
+                    true => RamLoadError::TooSmall,
+                    false => RamLoadError::TooLarge,
+                })
+            }
+        } else {
+            Err(RamLoadError::Incompatible)
+        }
+    }
+    fn save_save(&mut self, bytes: Vec<u8>) -> Result<(), RamSaveError> {
+        Err(RamSaveError::Incompatible)
+    }
+    fn reset_save(&mut self) {
+        self.ram.fill(0);
+    }
+
     fn rom_b(&self, address: u16) -> u8 {
         match address {
             0x0000..=0x3FFF => self.rom[address as usize + self.rom_lo_offset],

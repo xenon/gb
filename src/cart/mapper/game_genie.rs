@@ -4,7 +4,7 @@ use num_enum::IntoPrimitive;
 
 use crate::cart::info::CartridgeInfo;
 
-use super::Mapper;
+use super::{Mapper, RamLoadError, RamSaveError};
 
 const CONTROL_0: u16 = 0x4000;
 const CODE_ENABLE: u16 = 0x4001;
@@ -133,6 +133,21 @@ impl GameGenie {
 impl Mapper for GameGenie {
     fn reset(&mut self) {
         // Genie should keep it's state through a reset
+        // However the game state is reset
+        self.mapper.reset()
+    }
+
+    fn save_size(&self) -> Option<usize> {
+        self.mapper.save_size()
+    }
+    fn load_save(&mut self, bytes: Vec<u8>) -> Result<(), RamLoadError> {
+        self.mapper.load_save(bytes)
+    }
+    fn save_save(&mut self, bytes: Vec<u8>) -> Result<(), RamSaveError> {
+        self.mapper.save_save(bytes)
+    }
+    fn reset_save(&mut self) {
+        self.mapper.reset_save()
     }
 
     fn rom_b(&self, address: u16) -> u8 {
