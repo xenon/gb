@@ -2,7 +2,7 @@ use std::{cmp::Ordering, time::Duration};
 
 use num_enum::{IntoPrimitive, UnsafeFromPrimitive};
 
-use crate::cpu;
+use super::cpu;
 
 pub const ONE_FRAME_CYCLES: u32 = 70224;
 pub const ONE_FRAME_DURATION: Duration =

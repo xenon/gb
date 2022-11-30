@@ -1,6 +1,6 @@
 use num_enum::{IntoPrimitive, UnsafeFromPrimitive};
 
-use crate::{
+use super::{
     apu::Apu, bios::Bios, cart::Cartridge, joypad::Joypad, ppu::Ppu, serial::Serial, timer::Timer,
 };
 

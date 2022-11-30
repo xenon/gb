@@ -14,9 +14,9 @@ use winit::{
 use winit_input_helper::WinitInputHelper;
 
 use crate::{
+    gb::joypad::Button,
+    gb::ppu::{LCD_HEIGHT, LCD_WIDTH},
     gb::Gb,
-    joypad::Button,
-    ppu::{LCD_HEIGHT, LCD_WIDTH},
     thread::{system_thread, SystemEvent, SystemInput},
 };
 

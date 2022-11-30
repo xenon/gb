@@ -1,4 +1,4 @@
-use crate::cpu::HZ;
+use super::cpu::HZ;
 
 pub const SB: u16 = 0xFF01;
 pub const SC: u16 = 0xFF02;

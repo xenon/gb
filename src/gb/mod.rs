@@ -1,4 +1,4 @@
-use crate::{
+use self::{
     bios::Bios,
     cart::{info::CartridgeInfo, Cartridge},
     cpu::{
@@ -9,6 +9,16 @@ use crate::{
     mmu::Mmu,
     ppu::{LCD_HEIGHT, LCD_WIDTH, ONE_FRAME_CYCLES},
 };
+
+pub mod apu;
+pub mod bios;
+pub mod cart;
+pub mod cpu;
+pub mod joypad;
+pub mod mmu;
+pub mod ppu;
+pub mod serial;
+pub mod timer;
 
 pub struct Gb {
     cpu: Cpu,

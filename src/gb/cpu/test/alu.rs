@@ -2,7 +2,7 @@ use std::{fs::File, io::BufReader};
 
 use serde::Deserialize;
 
-use crate::cpu::registers::{Reg8, Registers};
+use crate::gb::cpu::registers::{Reg8, Registers};
 
 const ALU_TEST_PATH: &'static str =
     "C:\\Users\\user\\Documents\\Code\\rust-projects\\gameboy-test-data\\alu_tests\\v1\\";

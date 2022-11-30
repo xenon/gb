@@ -2,24 +2,15 @@
 
 use std::{path::PathBuf, process::exit};
 
-use bios::Bios;
-use cart::Cartridge;
 use clap::Parser;
+use gb::bios::Bios;
+use gb::cart::Cartridge;
 use gb::Gb;
 use trace::run_trace;
 use window::launch_window;
 
-pub mod apu;
-pub mod bios;
-pub mod cart;
-pub mod cpu;
-pub mod gb;
-pub mod joypad;
-pub mod mmu;
-pub mod ppu;
-pub mod serial;
-pub mod thread;
-pub mod timer;
+mod gb;
+mod thread;
 mod trace;
 pub mod window;
 

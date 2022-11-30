@@ -5,9 +5,9 @@ use std::{
 };
 
 use crate::{
+    gb::joypad::Button,
+    gb::ppu::{LCD_HEIGHT, LCD_WIDTH, ONE_FRAME_DURATION},
     gb::Gb,
-    joypad::Button,
-    ppu::{LCD_HEIGHT, LCD_WIDTH, ONE_FRAME_DURATION},
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

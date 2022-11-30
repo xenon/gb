@@ -2,7 +2,7 @@ use std::cell::RefCell;
 
 use num_enum::IntoPrimitive;
 
-use crate::cart::info::CartridgeInfo;
+use crate::gb::cart::info::CartridgeInfo;
 
 use super::{Mapper, RamLoadError, RamSaveError};
 

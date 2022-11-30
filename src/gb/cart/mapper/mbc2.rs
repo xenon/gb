@@ -1,4 +1,4 @@
-use crate::cart::info::CartridgeInfo;
+use crate::gb::cart::info::CartridgeInfo;
 
 use super::{Mapper, RamLoadError, RamSaveError, ROM_BANK_SIZE};
 

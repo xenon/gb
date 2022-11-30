@@ -1,6 +1,6 @@
 use num_enum::UnsafeFromPrimitive;
 
-use crate::cart::info::CartridgeInfo;
+use crate::gb::cart::info::CartridgeInfo;
 
 use super::{Mapper, RamLoadError, RamSaveError, RAM_BANK_SIZE, ROM_BANK_SIZE};
 

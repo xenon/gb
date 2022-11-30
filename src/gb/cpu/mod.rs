@@ -1,4 +1,4 @@
-use crate::mmu::Mmu;
+use super::mmu::Mmu;
 
 use self::{
     info::{CYCLES, CYCLES_CB, CYCLES_CB_BIT_HL},
