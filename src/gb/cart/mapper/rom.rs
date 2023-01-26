@@ -20,7 +20,7 @@ impl Mapper for Rom {
     fn load_save(&mut self, bytes: Vec<u8>) -> Result<(), RamLoadError> {
         Err(RamLoadError::Incompatible)
     }
-    fn save_save(&mut self, bytes: Vec<u8>) -> Result<(), RamSaveError> {
+    fn save_save(&mut self) -> Result<Vec<u8>, RamSaveError> {
         Err(RamSaveError::Incompatible)
     }
     fn reset_save(&mut self) {}

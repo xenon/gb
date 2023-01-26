@@ -14,8 +14,8 @@ const CODE_1: u16 = 0x4008;
 const CODE_1_END: u16 = 0x400C;
 const CODE_2: u16 = 0x400D;
 const CODE_2_END: u16 = 0x4011;
-const CONTROL_1: u16 = 0x4012;
-const CONTROL_2: u16 = 0x4013;
+//const CONTROL_1: u16 = 0x4012;
+//const CONTROL_2: u16 = 0x4013;
 
 const CODE_SIZE: usize = 5;
 const CODE_COUNT: usize = 3;
@@ -143,8 +143,8 @@ impl Mapper for GameGenie {
     fn load_save(&mut self, bytes: Vec<u8>) -> Result<(), RamLoadError> {
         self.mapper.load_save(bytes)
     }
-    fn save_save(&mut self, bytes: Vec<u8>) -> Result<(), RamSaveError> {
-        self.mapper.save_save(bytes)
+    fn save_save(&mut self) -> Result<Vec<u8>, RamSaveError> {
+        self.mapper.save_save()
     }
     fn reset_save(&mut self) {
         self.mapper.reset_save()

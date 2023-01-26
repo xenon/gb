@@ -32,6 +32,7 @@ impl Reg8 {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, UnsafeFromPrimitive)]
 #[repr(u32)]
+#[allow(unused)] // Variants are used, just indirectly by Reg16::get or UnsafeFromPrimitive
 pub enum Reg16 {
     AF = 0,
     BC = 1,

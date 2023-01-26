@@ -75,7 +75,18 @@ impl CartridgeInfo {
                 }
                 _ => None,
             };
-            let title = match std::str::from_utf8(&bytes[0x0134..0x0143]) {
+
+            let title_len = {
+                let mut title_len = 0;
+                for byte in bytes.iter().take(0x0143).skip(0x0134) {
+                    if byte == &0 {
+                        break;
+                    }
+                    title_len += 1;
+                }
+                title_len
+            };
+            let title = match std::str::from_utf8(&bytes[0x0134..(0x0134 + title_len)]) {
                 Ok(s) => s.to_string(),
                 Err(_) => return Err(CartridgeInfoError::TitleStringFail),
             };
@@ -288,6 +299,7 @@ impl fmt::Display for Region {
 
 #[derive(Clone, Debug, Eq, IntoPrimitive, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum OldLicenseeCode {
     None = 0x00,
     Nintendo = 0x01,
@@ -446,6 +458,7 @@ impl fmt::Display for OldLicenseeCode {
 
 #[derive(Clone, Debug, Eq, IntoPrimitive, PartialEq, TryFromPrimitive)]
 #[repr(u16)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum NewLicenseeCode {
     None = 0x00,
     NintendoRandD1 = 0x01,

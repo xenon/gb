@@ -36,7 +36,7 @@ pub trait Mapper: Send {
     // sav_size returns None if the cartridge doesn't support saving
     fn save_size(&self) -> Option<usize>;
     fn load_save(&mut self, bytes: Vec<u8>) -> Result<(), RamLoadError>;
-    fn save_save(&mut self, bytes: Vec<u8>) -> Result<(), RamSaveError>;
+    fn save_save(&mut self) -> Result<Vec<u8>, RamSaveError>;
     fn reset_save(&mut self);
 
     fn rom_b(&self, address: u16) -> u8;

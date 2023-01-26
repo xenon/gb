@@ -1,5 +1,8 @@
 use std::{
-    sync::mpsc::{channel, Receiver, Sender},
+    sync::{
+        mpsc::{channel, Receiver, Sender},
+        Arc, Mutex,
+    },
     thread::{sleep, Builder, JoinHandle},
     time::Instant,
 };
@@ -22,17 +25,20 @@ pub enum SystemInput {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SystemEvent {
     ExitNow,
-    Frame([[u8; LCD_WIDTH]; LCD_HEIGHT]),
+    Frame,
     Serial,
 }
 
-pub fn system_thread(gb: Gb) -> (JoinHandle<()>, Sender<SystemInput>, Receiver<SystemEvent>) {
+pub fn system_thread(
+    gb: Gb,
+    pixels: Arc<Mutex<[[u8; LCD_WIDTH]; LCD_HEIGHT]>>,
+) -> (JoinHandle<()>, Sender<SystemInput>, Receiver<SystemEvent>) {
     let (input_send, input_recv) = channel();
     let (event_send, event_recv) = channel();
     let handle = Builder::new()
         .name("gb system".to_string())
         .spawn(move || {
-            system_loop(gb, input_recv, event_send);
+            system_loop(gb, input_recv, event_send, pixels);
         })
         .unwrap_or_else(|_| panic!("Failed to build GB thread"));
     (handle, input_send, event_recv)
@@ -40,7 +46,12 @@ pub fn system_thread(gb: Gb) -> (JoinHandle<()>, Sender<SystemInput>, Receiver<S
 
 /// The System starts paused and must be sent SystemEvent::TogglePause to start it
 /// Sending SystemInput::Exit will cause the thread to exit and send out SystemEvent::ExitNow
-fn system_loop(mut gb: Gb, input: Receiver<SystemInput>, event: Sender<SystemEvent>) {
+fn system_loop(
+    mut gb: Gb,
+    input: Receiver<SystemInput>,
+    event: Sender<SystemEvent>,
+    pixels: Arc<Mutex<[[u8; LCD_WIDTH]; LCD_HEIGHT]>>,
+) {
     let mut cycles = 0;
     let mut paused = true;
     loop {
@@ -74,11 +85,12 @@ fn system_loop(mut gb: Gb, input: Receiver<SystemInput>, event: Sender<SystemEve
             // Run CPU
             cycles = gb.step_frame(cycles);
 
-            let buf = gb.get_buf();
-
+            if let Ok(pixel_buf) = pixels.lock().as_deref_mut() {
+                *pixel_buf = gb.get_buf();
+            }
             // Get next frame and send it
             event
-                .send(SystemEvent::Frame(buf))
+                .send(SystemEvent::Frame)
                 .expect("Failed to send the frame!");
 
             // Try to make emulation run at gb speed

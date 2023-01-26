@@ -14,7 +14,7 @@ pub const INTF: u16 = 0xFF0F;
 
 pub const KEY0: u16 = 0xFF4C;
 pub const KEY1: u16 = 0xFF4D;
-pub const VBK: u16 = 0xFF4F;
+//pub const VBK: u16 = 0xFF4F;
 
 pub const DMA: u16 = 0xFF46;
 

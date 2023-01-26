@@ -1,3 +1,4 @@
+#![allow(unused)]
 // Square 1
 pub const NR10: u16 = 0xFF10; // sweep
 pub const NR11: u16 = 0xFF11; // length and duty

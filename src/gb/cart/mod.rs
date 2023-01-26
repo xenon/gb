@@ -14,17 +14,17 @@ pub struct Cartridge {
 }
 
 pub enum CartridgeError {
-    FileError(Box<dyn Error>),
-    CartridgeInfoError(CartridgeInfoError),
-    GameGenieError,
+    File(Box<dyn Error>),
+    CartridgeInfo(CartridgeInfoError),
+    GameGenie,
 }
 
 impl std::fmt::Display for CartridgeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CartridgeError::FileError(e) => write!(f, "File Error: {}!", e),
-            CartridgeError::CartridgeInfoError(e) => write!(f, "Cartridge Error: {}", e),
-            CartridgeError::GameGenieError => {
+            CartridgeError::File(e) => write!(f, "File Error: {}!", e),
+            CartridgeError::CartridgeInfo(e) => write!(f, "Cartridge Error: {}", e),
+            CartridgeError::GameGenie => {
                 write!(f, "Game Genie ROM does not look like a game genie!")
             }
         }
@@ -35,11 +35,11 @@ impl Cartridge {
     fn load_cart(file: &Path) -> Result<(Vec<u8>, CartridgeInfo), CartridgeError> {
         let bytes = match read(file) {
             Ok(b) => b,
-            Err(e) => return Err(CartridgeError::FileError(Box::new(e))),
+            Err(e) => return Err(CartridgeError::File(Box::new(e))),
         };
         let info = match CartridgeInfo::new_from_cartridge(&bytes) {
             Ok(i) => i,
-            Err(e) => return Err(CartridgeError::CartridgeInfoError(e)),
+            Err(e) => return Err(CartridgeError::CartridgeInfo(e)),
         };
         Ok((bytes, info))
     }

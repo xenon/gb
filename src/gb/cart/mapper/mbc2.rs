@@ -33,7 +33,7 @@ impl Mbc2 {
             0 => 1,
             n => n,
         };
-        self.rom_offset = (self.bank as usize % rom_banks) * ROM_BANK_SIZE;
+        self.rom_offset = (self.bank % rom_banks) * ROM_BANK_SIZE;
     }
 }
 
@@ -69,8 +69,12 @@ impl Mapper for Mbc2 {
             Err(RamLoadError::Incompatible)
         }
     }
-    fn save_save(&mut self, bytes: Vec<u8>) -> Result<(), RamSaveError> {
-        Err(RamSaveError::Incompatible)
+    fn save_save(&mut self) -> Result<Vec<u8>, RamSaveError> {
+        if self.has_battery {
+            Ok(self.ram.clone())
+        } else {
+            Err(RamSaveError::Incompatible)
+        }
     }
     fn reset_save(&mut self) {
         self.ram.fill(0);

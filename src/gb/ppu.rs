@@ -33,7 +33,7 @@ pub const BCPD: u16 = 0xFF69; // CGB
 pub const OCPS: u16 = 0xFF6A; // CGB
 pub const OCPD: u16 = 0xFF6B; // CGB
 
-pub const OAM: u16 = 0xFFE0;
+//pub const OAM: u16 = 0xFFE0;
 
 const PPU_BANK_SIZE: usize = 0x2000;
 const PPU_OAM_SIZE: usize = 0xA0;

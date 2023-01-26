@@ -117,8 +117,12 @@ impl Mapper for Mbc1 {
             Err(RamLoadError::Incompatible)
         }
     }
-    fn save_save(&mut self, bytes: Vec<u8>) -> Result<(), RamSaveError> {
-        Err(RamSaveError::Incompatible)
+    fn save_save(&mut self) -> Result<Vec<u8>, RamSaveError> {
+        if self.has_battery {
+            Ok(self.ram.clone())
+        } else {
+            Err(RamSaveError::Incompatible)
+        }
     }
     fn reset_save(&mut self) {
         self.ram.fill(0);

@@ -1,6 +1,6 @@
 use std::{
     mem,
-    sync::mpsc::Receiver,
+    sync::{mpsc::Receiver, Arc, Mutex},
     thread::{Builder, JoinHandle},
 };
 
@@ -47,9 +47,11 @@ fn relay_thread(
 }
 
 pub fn launch_window(gb: Gb) {
+    let pixel_buf: Arc<Mutex<[[u8; LCD_WIDTH]; LCD_HEIGHT]>> =
+        Arc::new(Mutex::new([[0; LCD_WIDTH]; LCD_HEIGHT]));
     // Init system and thread
     let title = gb.cart_info().title.clone();
-    let (sh, system_input, system_event) = system_thread(gb);
+    let (sh, system_input, system_event) = system_thread(gb, pixel_buf.clone());
     let mut system_handle = Some(sh);
 
     // Winit + Pixels
@@ -101,27 +103,29 @@ pub fn launch_window(gb: Gb) {
                 println!("Exiting!");
                 *control_flow = ControlFlow::Exit;
             }
-            Event::UserEvent(EventWrapper::SystemEvent(SystemEvent::Frame(buf))) => {
+            Event::UserEvent(EventWrapper::SystemEvent(SystemEvent::Frame)) => {
                 let frame = pixels.get_frame_mut();
-                for (i, pixel) in frame.chunks_exact_mut(4).enumerate() {
-                    let x = i % LCD_WIDTH as usize;
-                    let y = i / LCD_WIDTH as usize;
+                if let Ok(buf) = pixel_buf.lock() {
+                    for (i, pixel) in frame.chunks_exact_mut(4).enumerate() {
+                        let x = i % LCD_WIDTH;
+                        let y = i / LCD_WIDTH;
 
-                    let slice: [u8; 4] = match buf[y][x] {
-                        /*0 => [0xFF, 0xFF, 0xFF, 0xFF],
-                        1 => [0xCC, 0xCC, 0xCC, 0xFF],
-                        2 => [0x77, 0x77, 0x77, 0xFF],
-                        3 => [0x00, 0x00, 0x00, 0xFF],*/
-                        0 => [255, 239, 206, 0xFF],
-                        1 => [222, 148, 74, 0xFF],
-                        2 => [173, 41, 33, 0xFF],
-                        3 => [49, 24, 82, 0xFF],
-                        _ => unreachable!(),
-                    };
+                        let slice: [u8; 4] = match buf[y][x] {
+                            /*0 => [0xFF, 0xFF, 0xFF, 0xFF],
+                            1 => [0xCC, 0xCC, 0xCC, 0xFF],
+                            2 => [0x77, 0x77, 0x77, 0xFF],
+                            3 => [0x00, 0x00, 0x00, 0xFF],*/
+                            0 => [255, 239, 206, 0xFF],
+                            1 => [222, 148, 74, 0xFF],
+                            2 => [173, 41, 33, 0xFF],
+                            3 => [49, 24, 82, 0xFF],
+                            _ => unreachable!(),
+                        };
 
-                    pixel.copy_from_slice(&slice);
+                        pixel.copy_from_slice(&slice);
+                    }
+                    window.request_redraw();
                 }
-                window.request_redraw();
             }
 
             Event::RedrawRequested(_) => {
